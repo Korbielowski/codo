@@ -1,6 +1,11 @@
+// Version of CNotes
 #define VERSION "0.1"
+
+// Files and directories names
 #define TODO_DIR_NAME "todo_lists"
 #define TODO_DB_FILE_NAME "todo_lists.db"
+
+// Database table names
 #define TODO_TABLE_NAME "todo_lists"
 #define TASKS_TABLE_NAME "tasks"
 

@@ -16,26 +16,29 @@ typedef enum {
 
 
 typedef struct{
-  char name[LIST_NAME_LEN];
-  char desc[LIST_DESC_LEN];
+  char* name;
+  char* desc;
   int list_id;
 } TodoList;
 
 
 typedef struct{
-  char name[TASK_NAME_LEN];
-  char desc[TASK_DESC_LEN];
+  char* name;
+  char* desc;
   int list_id;
   Status status;
 } Task;
 
 
 void de_init(TodoList** todo_list_arr){
-  do{
-    free(((*todo_list_arr)));
-    todo_list_arr++;
-  }while(todo_list_arr != NULL);
+  size_t i;
+  for(i=0; todo_list_arr[i] != NULL; i++){
+    free(todo_list_arr[i]->name);
+    free(todo_list_arr[i]);
+  }
+  free(todo_list_arr[i]);
   free(todo_list_arr);
+  printf("Deintialization successfully completed\n");
 }
 
 
@@ -106,28 +109,33 @@ void add_task_to_db(sqlite3* db_conn, char* task_name, char* task_desc, int todo
 
 TodoList** get_todo_lists(sqlite3* db_conn){
   sqlite3_stmt* todo_lists_stmt;
-  TodoList** todo_list_arr = malloc(sizeof(TodoList*)*10);
-  int counter = 0;
+  size_t arr_start_size = 10;
+  size_t i = 0;
+  TodoList** todo_list_arr = malloc(arr_start_size*sizeof(TodoList*));
 
-  /*if(sqlite3_prepare(db_conn, "", -1, &todo_lists_stmt, NULL) != SQLITE_OK){
-    addstr("Can't get todo lists");
+  if(sqlite3_prepare(db_conn, "SELECT * FROM todo_lists", -1, &todo_lists_stmt, NULL) != SQLITE_OK){
+    addstr("Can't get todo lists\n");
   }
 
-  while(sqlite3_step(todo_lists_stmt) != SQLITE_DONE){*/
-  for(int i =0; i <9; i++){
+  while(sqlite3_step(todo_lists_stmt) != SQLITE_DONE){
     TodoList* todo_list = malloc(sizeof(TodoList));
 
-    todo_list->list_id = counter+222;//sqlite3_column_int(todo_lists_stmt, 0);
-    todo_list->name[0] = 'a';//sqlite3_column_text(todo_lists_stmt, 1); 
+    char* list_name = (char*) sqlite3_column_text(todo_lists_stmt, 1);
+    todo_list->name = malloc(strlen(list_name)*sizeof(todo_list->name));
+    strcpy(todo_list->name, list_name);
 
-    todo_list_arr[counter] = todo_list;
-    counter++;
+    todo_list->list_id = sqlite3_column_int(todo_lists_stmt, 0);
+    
+    if(i > arr_start_size){
+
+    }
+    todo_list_arr[i] = todo_list;
+    i++;
   }
-  todo_list_arr[counter] = NULL;
+  todo_list_arr[i] = NULL;
 
-//  sqlite3_finalize(todo_lists_stmt);
+  sqlite3_finalize(todo_lists_stmt);
 
-  printf("WE are returning\n");
   return todo_list_arr;
 }
 
@@ -187,11 +195,17 @@ void notes_screen(sqlite3* db_conn){
   char normal_mode_input[3] = {'\0'};
   int mode = NORMAL_MODE;
   WINDOW* item_creation_window;
+  TodoList** todo_list_arr = get_todo_lists(db_conn);
+  
+  for(size_t i=0; todo_list_arr[i] != NULL; i++){
+    mvaddstr(int, int, const char *)
+    printf("list_id: %d\tlist name: %s\n", todo_list_arr[i]->list_id, todo_list_arr[i]->name);
+  }
 
   clear();
   addstr("Todo lists");
 
-  while(1){
+  while(true){
     if(mode == NORMAL_MODE){
       noecho();
       getnstr(normal_mode_input, 2);
@@ -231,6 +245,7 @@ void notes_screen(sqlite3* db_conn){
     
     refresh();
   }
+  de_init(todo_list_arr);
 }
 
 
@@ -239,7 +254,7 @@ int parse_args(int argc, char* argv[]){
   if(argc < 2)
     return 0;
 
-  for(int i=1; i<argc; i++){
+  for(size_t i=1; i<argc; i++){
     if(argv[i][0] == '-'){
       for(int j=1; j<strlen(argv[i]); j++){
         switch (argv[i][j]) {
@@ -269,14 +284,7 @@ int main(int argc, char* argv[]){
     return 1;
   }
 
-  TodoList** todo_list_arr = get_todo_lists(db_conn);
-  
-  while(*todo_list_arr != NULL){
-    printf("list_id: %d\tlist name: %s\n", (*(todo_list_arr))->list_id, (*(todo_list_arr))->name);
-    todo_list_arr++;
-  }
-
-  /*if(parse_args(argc, argv)){
+  if(parse_args(argc, argv)){
     return 1;
   }
 
@@ -288,8 +296,6 @@ int main(int argc, char* argv[]){
 
   endwin();
   sqlite3_close(db_conn);
-*/
 
-  de_init(todo_list_arr);
   return 0;
 }
