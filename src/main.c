@@ -15,6 +15,13 @@ typedef enum {
 } Status;
 
 
+typedef enum {
+  INSERT_MODE,
+  NORMAL_MODE,
+  SELECT_MODE,
+} CursorMode;
+
+
 typedef struct{
   char* name;
   char* desc;
@@ -25,19 +32,30 @@ typedef struct{
 typedef struct{
   char* name;
   char* desc;
+  int task_id;
   int list_id;
   Status status;
 } Task;
 
 
-void de_init(TodoList** todo_list_arr){
+void de_init(TodoList** todo_list_arr, Task** task_arr){
   size_t i;
+
   for(i=0; todo_list_arr[i] != NULL; i++){
     free(todo_list_arr[i]->name);
     free(todo_list_arr[i]);
   }
   free(todo_list_arr[i]);
   free(todo_list_arr);
+
+  /*for(i=0; task_arr[i] != NULL; i++){
+    free(task_arr[i]->name);
+    free(task_arr[i]->desc);
+    free(task_arr[i]);
+  }
+  free(task_arr[i]);
+  free(task_arr);
+*/
   printf("Deintialization successfully completed\n");
 }
 
@@ -106,32 +124,92 @@ void add_task_to_db(sqlite3* db_conn, char* task_name, char* task_desc, int todo
   return 0;
 }*/
 
+Task** get_tasks(sqlite3* db_conn, int todo_list_id){
+  sqlite3_stmt* tasks_stmt;
+  char tasks_query[200]; 
+  size_t arr_size = 20;
+  size_t i = 0;
+  Task** task_arr = malloc(arr_size*sizeof(Task*));
+
+  sprintf(tasks_query, "SELECT * FROM %s WHERE list_id = %d", TASKS_TABLE_NAME, todo_list_id);
+  if(sqlite3_prepare(db_conn, tasks_query, -1, &tasks_stmt, NULL) != SQLITE_OK){
+    addstr("Can't get tasks\n");
+  }
+
+  while (sqlite3_step(tasks_stmt) != SQLITE_DONE) {
+    Task* task = malloc(sizeof(Task));
+    
+    task->task_id = sqlite3_column_int(tasks_stmt, 0);
+
+    char* task_name = (char*) sqlite3_column_text(tasks_stmt, 1);
+    task->name = malloc(strlen(task_name)*sizeof(task->name));
+    strcpy(task->name, task_name);
+
+    char* task_desc = (char*) sqlite3_column_text(tasks_stmt, 2);
+    task->desc = malloc(strlen(task_desc)*sizeof(task->desc));
+    strcpy(task->desc, task_desc);
+
+    task->status = sqlite3_column_int(tasks_stmt, 3);
+
+    task->list_id = sqlite3_column_int(tasks_stmt, 4);
+
+    if(i > arr_size){
+      arr_size *= 2;
+      task_arr = realloc(task_arr, arr_size*sizeof(Task*)); 
+    }
+
+    task_arr[i] = task;
+    i++;
+  }
+
+  if(i > arr_size){
+    arr_size++;
+    task_arr = realloc(task_arr, (arr_size+1)*sizeof(Task*));
+  }
+
+  task_arr[i] = NULL;
+
+  sqlite3_finalize(tasks_stmt);
+
+  return task_arr;
+}
+
 
 TodoList** get_todo_lists(sqlite3* db_conn){
   sqlite3_stmt* todo_lists_stmt;
-  size_t arr_start_size = 10;
+  char todo_lists_query[200];
+  size_t arr_size = 10;
   size_t i = 0;
-  TodoList** todo_list_arr = malloc(arr_start_size*sizeof(TodoList*));
-
-  if(sqlite3_prepare(db_conn, "SELECT * FROM todo_lists", -1, &todo_lists_stmt, NULL) != SQLITE_OK){
+  TodoList** todo_list_arr = malloc(arr_size*sizeof(TodoList*));
+ 
+  sprintf(todo_lists_query, "SELECT * FROM %s", TODO_TABLE_NAME);
+  if(sqlite3_prepare(db_conn, todo_lists_query, -1, &todo_lists_stmt, NULL) != SQLITE_OK){
     addstr("Can't get todo lists\n");
   }
 
   while(sqlite3_step(todo_lists_stmt) != SQLITE_DONE){
     TodoList* todo_list = malloc(sizeof(TodoList));
 
+    todo_list->list_id = sqlite3_column_int(todo_lists_stmt, 0);
+
     char* list_name = (char*) sqlite3_column_text(todo_lists_stmt, 1);
     todo_list->name = malloc(strlen(list_name)*sizeof(todo_list->name));
     strcpy(todo_list->name, list_name);
-
-    todo_list->list_id = sqlite3_column_int(todo_lists_stmt, 0);
     
-    if(i > arr_start_size){
-
+    if(i > arr_size){
+      arr_size *= 2;
+      todo_list_arr = realloc(todo_list_arr, arr_size*sizeof(TodoList*));
     }
+
     todo_list_arr[i] = todo_list;
     i++;
   }
+
+  if(i > arr_size){
+    arr_size++;
+    todo_list_arr = realloc(todo_list_arr, (arr_size+1)*sizeof(Task*));
+  }
+
   todo_list_arr[i] = NULL;
 
   sqlite3_finalize(todo_lists_stmt);
@@ -181,6 +259,7 @@ sqlite3* init_db(){
 }
 
 
+//TODO: Change so that the version and other information about CNotes are taken from constants.h dynamically 
 void welcome_screen(){
   int rows_number, columns_number;
   getmaxyx(stdscr, rows_number, columns_number);
@@ -193,20 +272,52 @@ void welcome_screen(){
 
 void notes_screen(sqlite3* db_conn){
   char normal_mode_input[3] = {'\0'};
-  int mode = NORMAL_MODE;
+  int mode = SELECT_MODE;
   WINDOW* item_creation_window;
+  WINDOW* list_selection_window = newwin(LINES-1, 20, 0, 0);
   TodoList** todo_list_arr = get_todo_lists(db_conn);
-  
+  Task** task_arr;
+  int cur_pos = 1;
+  int max_cur_pos = 0;
+
+  waddstr(list_selection_window, "Todo lists:");
+
   for(size_t i=0; todo_list_arr[i] != NULL; i++){
-    mvaddstr(int, int, const char *)
-    printf("list_id: %d\tlist name: %s\n", todo_list_arr[i]->list_id, todo_list_arr[i]->name);
+    mvwaddstr(list_selection_window, i+1, 0, todo_list_arr[i]->name);
+    max_cur_pos++;
   }
 
-  clear();
-  addstr("Todo lists");
+  wmove(list_selection_window, cur_pos, 0);
+  wchgat(list_selection_window, -1, A_STANDOUT, 0, NULL);
+  wrefresh(list_selection_window);
 
   while(true){
-    if(mode == NORMAL_MODE){
+    if(mode == SELECT_MODE){
+      noecho();
+      int key = getch(); 
+      
+      if(key == KEY_DOWN){
+        wchgat(list_selection_window, -1, A_NORMAL, 0, NULL);
+        cur_pos++;
+        if(cur_pos > max_cur_pos){
+          cur_pos = 1;
+        }
+        wmove(list_selection_window, cur_pos, 0);
+        wchgat(list_selection_window, -1, A_STANDOUT, 0, NULL);
+      }else if(key == KEY_UP){
+        wchgat(list_selection_window, -1, A_NORMAL, 0, NULL);
+        cur_pos--;
+        if(cur_pos < 1){
+          cur_pos = max_cur_pos;
+        }
+        wmove(list_selection_window, cur_pos, 0);
+        wchgat(list_selection_window, -1, A_STANDOUT, 0, NULL);
+      } else {
+        wchgat(list_selection_window, -1, A_NORMAL, 0, NULL);
+        mode = NORMAL_MODE; 
+      }
+      wrefresh(list_selection_window);
+    }else if(mode == NORMAL_MODE){
       noecho();
       getnstr(normal_mode_input, 2);
 
@@ -219,6 +330,7 @@ void notes_screen(sqlite3* db_conn){
       }else if(strcmp(normal_mode_input, DELETE_ITEM) == 0){
         addstr("Deleted item");
       }else if(strcmp(normal_mode_input, EXIT_CNOTES) == 0){
+        de_init(todo_list_arr, task_arr);
         return;
       }else{
         addstr("Bad input");
@@ -242,10 +354,8 @@ void notes_screen(sqlite3* db_conn){
 
       mode = NORMAL_MODE;
     }
-    
-    refresh();
+    //refresh();
   }
-  de_init(todo_list_arr);
 }
 
 
@@ -289,6 +399,8 @@ int main(int argc, char* argv[]){
   }
 
   initscr();
+  curs_set(0);
+  keypad(initscr(), true);
   raw();
 
   welcome_screen();

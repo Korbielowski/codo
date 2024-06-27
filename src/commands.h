@@ -3,5 +3,8 @@
 #define EDIT_ITEM "ei"
 #define EXIT_CNOTES "xx"
 
-#define NORMAL_MODE 1
+/*
 #define INSERT_MODE 0
+#define NORMAL_MODE 1
+#define SELECT_MODE 2
+*/
