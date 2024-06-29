@@ -1,2 +1,2 @@
-main: main.c
-	cc main.c -o notes -lncurses -lsqlite3
+main: main.c list.h
+	cc -o notes list.c main.c -lncurses -lsqlite3

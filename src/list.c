@@ -27,7 +27,6 @@ void* get_list(List* list, size_t index){
   if(index >= list->occ_size){
     return NULL;
   }
-  printf("number: %d, at index: %zu\n", *(int*) list->arr[index], index);
   return list->arr[index];
 }
 
@@ -44,21 +43,3 @@ int append_list(List* list, void* item){
   list->arr[list->occ_size-1] = item;
   return OP_OK;
 }
-
-
-/*int main(){
-  
-  List list;
-  if(init_list(&list) != OP_OK){
-    printf("ERROR when initializing a list\n");
-  }
-
-  for(int i=0; i < 1000; i++){
-    append_list(&list, &i);
-    get_list(&list, i);
-  }
-
-  deinit_list(&list, NULL);
-
-  return 0;
-}*/

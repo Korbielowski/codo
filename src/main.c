@@ -100,11 +100,12 @@ bool check_if_table_exists(sqlite3* db_conn, char* query){
   return exists;
 }
 
+
 void add_task_to_db(sqlite3* db_conn, char* task_name, char* task_desc, int todo_list_id){
   char add_task_query[TASKS_TABLE_NAME_LEN+TASK_DESC_LEN+100];
   sqlite3_stmt* add_task_stmt;
 
-  snprintf(add_task_query, sizeof(add_task_query), "INSERT INTO %s (task_name, task_desc, task_status, list_id) VALUES ('%s', '%s', %d, %d)", TASKS_TABLE_NAME, task_name, task_desc, IN_PROGESS, todo_list_id);
+  snprintf(add_task_query, sizeof(add_task_query), "INSERT INTO %s (task_name, task_description, list_id) VALUES ('%s', '%s', %d)", TASKS_TABLE_NAME, task_name, task_desc, todo_list_id);
   if(sqlite3_prepare(db_conn, add_task_query, -1, &add_task_stmt, NULL) != SQLITE_OK){
     addstr("Can't save the task");
   }
@@ -118,7 +119,7 @@ void add_task_to_db(sqlite3* db_conn, char* task_name, char* task_desc, int todo
 }
 
 
-void add_task_to_win(WINDOW* win, Task** task_arr, char* task_name, char* task_desc, int todo_list_id){
+void add_task_to_win(WINDOW* win, List* task_list, char* task_name, char* task_desc, int todo_list_id){
   Task* task = malloc(sizeof(Task));
   task->name = malloc(strlen(task_name)*sizeof(task->name));
   task->desc = malloc(strlen(task_desc)*sizeof(task->desc));
@@ -126,25 +127,20 @@ void add_task_to_win(WINDOW* win, Task** task_arr, char* task_name, char* task_d
   strcpy(task->name, task_name);
   strcpy(task->desc, task_desc);
 
-  //TODO: Add a container of some kind, because it will be easier and faster to use it than iterate through the whole array
-  int i;
-  for(i=0; task_arr[i] != NULL; i++){
-     
-  }
-  task_arr[i] = task;
+  append_list(task_list, task);
 
-  mvwaddstr(win, i+1, 30, task_name);
-  mvwaddstr(win, i+1, 30+strlen(task_name)+5, task_desc);
+  mvwaddstr(win, task_list->occ_size+1, 30, task_name);
+  mvwaddstr(win, task_list->occ_size+1, 30+strlen(task_name)+5, task_desc);
   wrefresh(win);
 }
 
 
-Task** get_tasks(sqlite3* db_conn, int todo_list_id){
+List* get_tasks(sqlite3* db_conn, int todo_list_id){
   sqlite3_stmt* tasks_stmt;
   char tasks_query[200]; 
-  size_t arr_size = 20;
-  size_t i = 0;
-  Task** task_arr = malloc(arr_size*sizeof(Task*));
+  List* task_list = malloc(sizeof(List));
+
+  init_list(task_list);
 
   sprintf(tasks_query, "SELECT * FROM %s WHERE list_id = %d", TASKS_TABLE_NAME, todo_list_id);
   if(sqlite3_prepare(db_conn, tasks_query, -1, &tasks_stmt, NULL) != SQLITE_OK){
@@ -155,6 +151,7 @@ Task** get_tasks(sqlite3* db_conn, int todo_list_id){
     Task* task = malloc(sizeof(Task));
     
     task->task_id = sqlite3_column_int(tasks_stmt, 0);
+    task->list_id = sqlite3_column_int(tasks_stmt, 1);
 
     char* task_name = (char*) sqlite3_column_text(tasks_stmt, 2);
     task->name = malloc(strlen(task_name)*sizeof(task->name));
@@ -166,36 +163,21 @@ Task** get_tasks(sqlite3* db_conn, int todo_list_id){
 
     task->status = sqlite3_column_int(tasks_stmt, 4);
 
-    task->list_id = sqlite3_column_int(tasks_stmt, 1);
-
-    if(i > arr_size){
-      arr_size *= 2;
-      task_arr = realloc(task_arr, arr_size*sizeof(Task*)); 
-    }
-
-    task_arr[i] = task;
-    i++;
+    append_list(task_list, task);
   }
-
-  if(i > arr_size){
-    arr_size++;
-    task_arr = realloc(task_arr, (arr_size+1)*sizeof(Task*));
-  }
-
-  task_arr[i] = NULL;
 
   sqlite3_finalize(tasks_stmt);
 
-  return task_arr;
+  return task_list;
 }
 
 
-TodoList** get_todo_lists(sqlite3* db_conn){
+List* get_todo_lists(sqlite3* db_conn){
   sqlite3_stmt* todo_lists_stmt;
   char todo_lists_query[200];
-  size_t arr_size = 10;
-  size_t i = 0;
-  TodoList** todo_list_arr = malloc(arr_size*sizeof(TodoList*));
+  List* todo_list = malloc(sizeof(List));
+
+  init_list(todo_list);
  
   sprintf(todo_lists_query, "SELECT * FROM %s", TODO_TABLE_NAME);
   if(sqlite3_prepare(db_conn, todo_lists_query, -1, &todo_lists_stmt, NULL) != SQLITE_OK){
@@ -203,33 +185,20 @@ TodoList** get_todo_lists(sqlite3* db_conn){
   }
 
   while(sqlite3_step(todo_lists_stmt) != SQLITE_DONE){
-    TodoList* todo_list = malloc(sizeof(TodoList));
+    TodoList* todo = malloc(sizeof(TodoList));
 
-    todo_list->list_id = sqlite3_column_int(todo_lists_stmt, 0);
+    todo->list_id = sqlite3_column_int(todo_lists_stmt, 0);
 
     char* list_name = (char*) sqlite3_column_text(todo_lists_stmt, 1);
-    todo_list->name = malloc(strlen(list_name)*sizeof(todo_list->name));
-    strcpy(todo_list->name, list_name);
+    todo->name = malloc(strlen(list_name)*sizeof(todo->name));
+    strcpy(todo->name, list_name);
     
-    if(i > arr_size){
-      arr_size *= 2;
-      todo_list_arr = realloc(todo_list_arr, arr_size*sizeof(TodoList*));
-    }
-
-    todo_list_arr[i] = todo_list;
-    i++;
+    append_list(todo_list, todo);
   }
-
-  if(i > arr_size){
-    arr_size++;
-    todo_list_arr = realloc(todo_list_arr, (arr_size+1)*sizeof(Task*));
-  }
-
-  todo_list_arr[i] = NULL;
 
   sqlite3_finalize(todo_lists_stmt);
 
-  return todo_list_arr;
+  return todo_list;
 }
 
 
@@ -290,8 +259,8 @@ void notes_screen(sqlite3* db_conn){
   int mode = SELECT_MODE;
   WINDOW* tasks_win = newwin(LINES-1, COLS-1-20, 0, 20);
   WINDOW* list_win = newwin(LINES-1, 20, 0, 0);
-  TodoList** todo_list_arr = get_todo_lists(db_conn);
-  Task** task_arr;
+  List* todo_list = get_todo_lists(db_conn);
+  List* task_list;
   int cur_pos = 1;
   int max_cur_pos = 0;
   bool are_printed = false;
@@ -301,8 +270,9 @@ void notes_screen(sqlite3* db_conn){
   keypad(list_win, true);
   waddstr(list_win, "Todo lists:");
 
-  for(size_t i=0; todo_list_arr[i] != NULL; i++){
-    mvwaddstr(list_win, i+1, 0, todo_list_arr[i]->name);
+  for(size_t i=0; i < todo_list->occ_size; i++){
+    TodoList* todo = (TodoList*) get_list(todo_list, i);
+    mvwaddstr(list_win, i+1, 0, todo->name);
     max_cur_pos++;
   }
 
@@ -333,7 +303,8 @@ void notes_screen(sqlite3* db_conn){
         wchgat(list_win, -1, A_STANDOUT, 0, NULL);
       } else if(key == KEY_RIGHT){
         wchgat(list_win, -1, A_NORMAL, 0, NULL);
-        task_arr = get_tasks(db_conn, todo_list_arr[cur_pos-1]->list_id);
+        TodoList* todo = (TodoList*) get_list(todo_list, cur_pos-1);
+        task_list = get_tasks(db_conn, todo->list_id);
         are_printed = false;
         mode = NORMAL_MODE;
       } else if(key == KEY_ENTER){
@@ -345,9 +316,10 @@ void notes_screen(sqlite3* db_conn){
 
     else if(mode == NORMAL_MODE){
       if(!are_printed){
-        for(size_t i=0; task_arr[i] != NULL; i++){
-          mvwaddstr(tasks_win, i+1, 30, task_arr[i]->name);
-          mvwaddstr(tasks_win, i+1, 30+strlen(task_arr[i]->name)+5, task_arr[i]->desc);
+        for(size_t i=0; i < task_list->occ_size; i++){
+          Task* task = get_list(task_list, i);
+          mvwaddstr(tasks_win, i+1, 30, task->name);
+          mvwaddstr(tasks_win, i+1, 30+strlen(task->name)+5, task->desc);
         }
         wrefresh(tasks_win);
         are_printed = true;
@@ -367,7 +339,8 @@ void notes_screen(sqlite3* db_conn){
       }else if(strcmp(normal_mode_input, DELETE_ITEM) == 0){
         waddstr(tasks_win, "Deleted item");
       }else if(strcmp(normal_mode_input, EXIT_CNOTES) == 0){
-        de_init(todo_list_arr, task_arr);
+        //TODO: Write proper de_init for todo_list and task_list using function pointers
+        //de_init(todo_list_arr, task_arr);
         return;
       }else if(strcmp(normal_mode_input, CHANGE_MODE) == 0){
         wclear(tasks_win);
@@ -391,8 +364,9 @@ void notes_screen(sqlite3* db_conn){
       wgetstr(new_task_win, task_name);
       wgetstr(new_task_win, task_desc);
 
-      //add_task_to_db(db_conn, task_name, task_desc, todo_list_arr[cur_pos-1]->list_id);
-      add_task_to_win(tasks_win, task_arr, task_name, task_desc, todo_list_arr[cur_pos-1]->list_id);
+      TodoList* todo = (TodoList*) get_list(todo_list, cur_pos-1);
+      add_task_to_db(db_conn, task_name, task_desc, todo->list_id);
+      add_task_to_win(tasks_win, task_list, task_name, task_desc, todo->list_id);
       
       wborder(new_task_win, ' ', ' ', ' ',' ',' ',' ',' ',' ');
       werase(new_task_win);
