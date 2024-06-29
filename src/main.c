@@ -5,8 +5,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <stdlib.h>
+
+
 #include "commands.h"
 #include "constants.h"
+#include "list.h"
 
 
 typedef enum {
@@ -114,15 +117,27 @@ void add_task_to_db(sqlite3* db_conn, char* task_name, char* task_desc, int todo
   sqlite3_finalize(add_task_stmt);
 }
 
-// Probably this function is useless
-/*int get_todo_list_id(sqlite3* db_conn){
-  char todo_list_id_query[100+TODO_TABLE_NAME_LENGTH];
-  sqlite3_stmt* todo_list_id_stmt;
 
-  snprintf(todo_list_id_query, sizeof(todo_list_id_query), "SELECT ID FROM %s WHERE list_id = %d", TODO_TABLE_NAME, todo_list_id);
+void add_task_to_win(WINDOW* win, Task** task_arr, char* task_name, char* task_desc, int todo_list_id){
+  Task* task = malloc(sizeof(Task));
+  task->name = malloc(strlen(task_name)*sizeof(task->name));
+  task->desc = malloc(strlen(task_desc)*sizeof(task->desc));
 
-  return 0;
-}*/
+  strcpy(task->name, task_name);
+  strcpy(task->desc, task_desc);
+
+  //TODO: Add a container of some kind, because it will be easier and faster to use it than iterate through the whole array
+  int i;
+  for(i=0; task_arr[i] != NULL; i++){
+     
+  }
+  task_arr[i] = task;
+
+  mvwaddstr(win, i+1, 30, task_name);
+  mvwaddstr(win, i+1, 30+strlen(task_name)+5, task_desc);
+  wrefresh(win);
+}
+
 
 Task** get_tasks(sqlite3* db_conn, int todo_list_id){
   sqlite3_stmt* tasks_stmt;
@@ -141,17 +156,17 @@ Task** get_tasks(sqlite3* db_conn, int todo_list_id){
     
     task->task_id = sqlite3_column_int(tasks_stmt, 0);
 
-    char* task_name = (char*) sqlite3_column_text(tasks_stmt, 1);
+    char* task_name = (char*) sqlite3_column_text(tasks_stmt, 2);
     task->name = malloc(strlen(task_name)*sizeof(task->name));
     strcpy(task->name, task_name);
 
-    char* task_desc = (char*) sqlite3_column_text(tasks_stmt, 2);
+    char* task_desc = (char*) sqlite3_column_text(tasks_stmt, 3);
     task->desc = malloc(strlen(task_desc)*sizeof(task->desc));
     strcpy(task->desc, task_desc);
 
-    task->status = sqlite3_column_int(tasks_stmt, 3);
+    task->status = sqlite3_column_int(tasks_stmt, 4);
 
-    task->list_id = sqlite3_column_int(tasks_stmt, 4);
+    task->list_id = sqlite3_column_int(tasks_stmt, 1);
 
     if(i > arr_size){
       arr_size *= 2;
@@ -273,88 +288,119 @@ void welcome_screen(){
 void notes_screen(sqlite3* db_conn){
   char normal_mode_input[3] = {'\0'};
   int mode = SELECT_MODE;
-  WINDOW* item_creation_window;
-  WINDOW* list_selection_window = newwin(LINES-1, 20, 0, 0);
+  WINDOW* tasks_win = newwin(LINES-1, COLS-1-20, 0, 20);
+  WINDOW* list_win = newwin(LINES-1, 20, 0, 0);
   TodoList** todo_list_arr = get_todo_lists(db_conn);
   Task** task_arr;
   int cur_pos = 1;
   int max_cur_pos = 0;
-
-  waddstr(list_selection_window, "Todo lists:");
+  bool are_printed = false;
+  
+  clear();
+  refresh();
+  keypad(list_win, true);
+  waddstr(list_win, "Todo lists:");
 
   for(size_t i=0; todo_list_arr[i] != NULL; i++){
-    mvwaddstr(list_selection_window, i+1, 0, todo_list_arr[i]->name);
+    mvwaddstr(list_win, i+1, 0, todo_list_arr[i]->name);
     max_cur_pos++;
   }
 
-  wmove(list_selection_window, cur_pos, 0);
-  wchgat(list_selection_window, -1, A_STANDOUT, 0, NULL);
-  wrefresh(list_selection_window);
+  wmove(list_win, cur_pos, 0);
+  wchgat(list_win, -1, A_STANDOUT, 0, NULL);
+  wrefresh(list_win);
 
   while(true){
     if(mode == SELECT_MODE){
       noecho();
-      int key = getch(); 
+      int key = wgetch(list_win);
       
       if(key == KEY_DOWN){
-        wchgat(list_selection_window, -1, A_NORMAL, 0, NULL);
+        wchgat(list_win, -1, A_NORMAL, 0, NULL);
         cur_pos++;
         if(cur_pos > max_cur_pos){
           cur_pos = 1;
         }
-        wmove(list_selection_window, cur_pos, 0);
-        wchgat(list_selection_window, -1, A_STANDOUT, 0, NULL);
-      }else if(key == KEY_UP){
-        wchgat(list_selection_window, -1, A_NORMAL, 0, NULL);
+        wmove(list_win, cur_pos, 0);
+        wchgat(list_win, -1, A_STANDOUT, 0, NULL);
+      } else if(key == KEY_UP){
+        wchgat(list_win, -1, A_NORMAL, 0, NULL);
         cur_pos--;
         if(cur_pos < 1){
           cur_pos = max_cur_pos;
         }
-        wmove(list_selection_window, cur_pos, 0);
-        wchgat(list_selection_window, -1, A_STANDOUT, 0, NULL);
-      } else {
-        wchgat(list_selection_window, -1, A_NORMAL, 0, NULL);
+        wmove(list_win, cur_pos, 0);
+        wchgat(list_win, -1, A_STANDOUT, 0, NULL);
+      } else if(key == KEY_RIGHT){
+        wchgat(list_win, -1, A_NORMAL, 0, NULL);
+        task_arr = get_tasks(db_conn, todo_list_arr[cur_pos-1]->list_id);
+        are_printed = false;
+        mode = NORMAL_MODE;
+      } else if(key == KEY_ENTER){
+        wchgat(list_win, -1, A_NORMAL, 0, NULL);
         mode = NORMAL_MODE; 
       }
-      wrefresh(list_selection_window);
-    }else if(mode == NORMAL_MODE){
+      wrefresh(list_win);
+    }
+
+    else if(mode == NORMAL_MODE){
+      if(!are_printed){
+        for(size_t i=0; task_arr[i] != NULL; i++){
+          mvwaddstr(tasks_win, i+1, 30, task_arr[i]->name);
+          mvwaddstr(tasks_win, i+1, 30+strlen(task_arr[i]->name)+5, task_arr[i]->desc);
+        }
+        wrefresh(tasks_win);
+        are_printed = true;
+      }
+      //move(cur_pos, 0);
+      //chgat(-1, A_STANDOUT, 0, NULL);
+
       noecho();
       getnstr(normal_mode_input, 2);
 
       if(strcmp(normal_mode_input, ADD_NEW_ITEM) == 0){
-        addstr("Added new item");
+        waddstr(tasks_win, "Added new item");
         mode = INSERT_MODE;
       }else if(strcmp(normal_mode_input, EDIT_ITEM) == 0){
-        addstr("Edited item");
+        waddstr(tasks_win, "Edited item");
         mode = INSERT_MODE;
       }else if(strcmp(normal_mode_input, DELETE_ITEM) == 0){
-        addstr("Deleted item");
+        waddstr(tasks_win, "Deleted item");
       }else if(strcmp(normal_mode_input, EXIT_CNOTES) == 0){
         de_init(todo_list_arr, task_arr);
         return;
-      }else{
-        addstr("Bad input");
-        continue;
+      }else if(strcmp(normal_mode_input, CHANGE_MODE) == 0){
+        wclear(tasks_win);
+        mode = SELECT_MODE;
       }
-    }else if(mode == INSERT_MODE){
+      else{
+        waddstr(tasks_win, "Bad input");
+      }
+      wrefresh(tasks_win);
+    }
+
+    else if(mode == INSERT_MODE){
       echo();
       char task_name[TASK_NAME_LEN+1];
       char task_desc[TASK_DESC_LEN+1];
       char key;
-      item_creation_window = newwin(5, 10, LINES - 10, COLS - 20);
+      WINDOW* new_task_win = newwin(10, COLS-20-1, LINES-10, 20);
 
-      box(item_creation_window, 0, 0);
-      wrefresh(item_creation_window);
-      wgetstr(item_creation_window, task_name);
-      wgetstr(item_creation_window, task_desc);
+      box(new_task_win, 0, 0);
+      wrefresh(new_task_win);
+      wgetstr(new_task_win, task_name);
+      wgetstr(new_task_win, task_desc);
 
-      //add_task_to_db(db_conn, task_name, task_desc, );
+      //add_task_to_db(db_conn, task_name, task_desc, todo_list_arr[cur_pos-1]->list_id);
+      add_task_to_win(tasks_win, task_arr, task_name, task_desc, todo_list_arr[cur_pos-1]->list_id);
       
-      waddstr(item_creation_window, "Added item:");
+      wborder(new_task_win, ' ', ' ', ' ',' ',' ',' ',' ',' ');
+      werase(new_task_win);
+      wrefresh(new_task_win);
+      delwin(new_task_win);
 
       mode = NORMAL_MODE;
     }
-    //refresh();
   }
 }
 

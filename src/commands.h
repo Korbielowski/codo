@@ -2,6 +2,7 @@
 #define DELETE_ITEM "di"
 #define EDIT_ITEM "ei"
 #define EXIT_CNOTES "xx"
+#define CHANGE_MODE "cm"
 
 /*
 #define INSERT_MODE 0
