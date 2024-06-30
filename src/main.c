@@ -41,25 +41,17 @@ typedef struct{
 } Task;
 
 
-void de_init(TodoList** todo_list_arr, Task** task_arr){
-  size_t i;
+void deinit_task(Task* task){
+  free(task->name);
+  free(task->desc);
+  free(task);
+}
 
-  for(i=0; todo_list_arr[i] != NULL; i++){
-    free(todo_list_arr[i]->name);
-    free(todo_list_arr[i]);
-  }
-  free(todo_list_arr[i]);
-  free(todo_list_arr);
 
-  /*for(i=0; task_arr[i] != NULL; i++){
-    free(task_arr[i]->name);
-    free(task_arr[i]->desc);
-    free(task_arr[i]);
-  }
-  free(task_arr[i]);
-  free(task_arr);
-*/
-  printf("Deintialization successfully completed\n");
+void deinit_todo(TodoList* todo){
+  free(todo->name);
+  free(todo);
+  //free(todo->desc);
 }
 
 
@@ -339,8 +331,9 @@ void notes_screen(sqlite3* db_conn){
       }else if(strcmp(normal_mode_input, DELETE_ITEM) == 0){
         waddstr(tasks_win, "Deleted item");
       }else if(strcmp(normal_mode_input, EXIT_CNOTES) == 0){
-        //TODO: Write proper de_init for todo_list and task_list using function pointers
-        //de_init(todo_list_arr, task_arr);
+        //TODO: Check whether deinit functions work properly 
+        deinit_list(task_list, (void(*)(void*)) &deinit_task);
+        deinit_list(todo_list, (void(*)(void*)) &deinit_todo);
         return;
       }else if(strcmp(normal_mode_input, CHANGE_MODE) == 0){
         wclear(tasks_win);

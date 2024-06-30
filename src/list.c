@@ -14,7 +14,7 @@ int init_list(List* list){
 
 void deinit_list(List* list, void (*func_p)(void*)){
   if(func_p != NULL){
-    for(int i=0; i < list->arr_size; i++){
+    for(int i=0; i < list->occ_size; i++){
       printf("destroying index:%d\n", i);
       (*func_p)(list->arr[i]);
     }
