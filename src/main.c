@@ -369,7 +369,7 @@ void notes_screen(sqlite3 *db_conn) {
         task_list = get_tasks(db_conn, todo->list_id);
         are_printed = false;
         mode = NORMAL_MODE;
-      } else if (key == KEY_ENTER) {
+      } else if (key == (int)'a') {
         wchgat(list_win, -1, A_NORMAL, 0, NULL);
         mode = NORMAL_MODE;
       }
