@@ -1,8 +1,7 @@
 #ifndef LIST_H_
 #define LIST_H_
 
-#include <stdio.h>
-#include <stdlib.h>
+#include "models.h"
 
 #define OP_OK 1
 #define OP_NOT_OK 0
@@ -22,5 +21,13 @@ void *get_list(List *list, size_t index);
 int append_list(List *list, void *item);
 
 int remove_list(List *list, size_t index, void (*remove_func_p)(void *));
+
+void delete_task(Task *task);
+
+void delete_todo(TodoList *todo);
+
+void deinit_task(Task *task);
+
+void deinit_todo(TodoList *todo);
 
 #endif // !LIST_H

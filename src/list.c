@@ -1,5 +1,6 @@
-#include "./list.h"
-#include <string.h>
+#include "list.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 int init_list(List *list) {
   list->arr_size = 10;
@@ -43,6 +44,9 @@ int append_list(List *list, void *item) {
 
 int remove_list(List *list, size_t index, void (*remove_func_p)(void *)) {
   (*remove_func_p)(list->arr[index]);
+  if (index >= list->occ_size) {
+    return OP_NOT_OK;
+  }
   for (int i = index; i < list->occ_size - 1; i++) {
     void *element = get_list(list, i + 1);
     if (element == NULL) {
@@ -50,7 +54,33 @@ int remove_list(List *list, size_t index, void (*remove_func_p)(void *)) {
     }
     list->arr[i] = element;
   }
-  list->arr[list->occ_size-1] = NULL;
+  list->arr[list->occ_size - 1] = NULL;
   list->occ_size--;
   return OP_OK;
+}
+
+void delete_task(Task *task) {
+  free(task->name);
+  free(task->desc);
+}
+
+void delete_todo(TodoList *todo) {
+  free(todo->name);
+  // free(todo->desc);
+}
+
+void deinit_task(Task *task) {
+  if (task != NULL) {
+    free(task->name);
+    free(task->desc);
+  }
+  free(task);
+}
+
+void deinit_todo(TodoList *todo) {
+  if (todo != NULL) {
+    free(todo->name);
+    // free(todo->desc);
+  }
+  free(todo);
 }
