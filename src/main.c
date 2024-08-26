@@ -72,6 +72,17 @@ void delete_task_from_win(WINDOW *win, List *task_list, int *cur_pos,
   if (task_list->occ_size == 0) {
     return;
   }
+  // TODO: Actually good screen clearing when deleting records
+  wclrtoeol(win);
+  int x, y;
+  getyx(win, y, x);
+  for (int i = task_list->occ_size - 1; i >= *cur_pos; i--) {
+    Task *task = (Task *)get_list(task_list, i);
+    mvwaddstr(win, i, 30, task->name);
+    mvwaddstr(win, i, 30 + strlen(task->name) + 5, task->desc);
+    wmove(win, i, x);
+    wclrtoeol(win);
+  }
   remove_list(task_list, *cur_pos, (void (*)(void *)) & delete_task);
   if (*cur_pos == *max_cur_pos) {
     (*cur_pos)--;
@@ -79,13 +90,18 @@ void delete_task_from_win(WINDOW *win, List *task_list, int *cur_pos,
     wchgat(win, -1, A_STANDOUT, 0, NULL);
   }
   (*max_cur_pos)--;
-  for (int i = *cur_pos; i < task_list->occ_size; i++) {
-    Task *task = (Task *)get_list(task_list, i);
-    mvwaddstr(win, i + 1, 30, task->name);
-    mvwaddstr(win, i + 1, 30 + strlen(task->name) + 5, task->desc);
-  }
-  waddstr(win, "Deleted item");
-  wclrtoeol(win);
+  wrefresh(win);
+}
+
+void change_task_status_win(WINDOW *win, Task *task, size_t cur_pos,
+                            Status status) {
+  task->status = status;
+  wchar_t characters[] = L"\u2714";
+  int x, y;
+  getmaxyx(win, y, x);
+  mvwprintw(win, cur_pos, x - 1, "%ls", characters);
+  // TODO: Change color and add checkmark next to done task
+  // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
   wrefresh(win);
 }
 
@@ -128,7 +144,7 @@ void notes_screen(sqlite3 *db_conn) {
   noecho();
   // wchar_t characters[] = L"\u0837";
   // const char martini[5] = {0xF0, 0x9F, 0x98, 0x81, '\0'};
-  // wprintw(list_win, "%s :", martini);
+  // wprintw(list_win, "%ls :", characters);
   waddstr(list_win, "Todo lists:");
 
   for (size_t i = 0; i < todo_list->occ_size; i++) {
@@ -156,8 +172,8 @@ void notes_screen(sqlite3 *db_conn) {
         are_printed = false;
         mode = SELECT_TASK_MODE;
       } else if (key == (int)'a') {
-        wchgat(list_win, -1, A_NORMAL, 0, NULL);
-        mode = SELECT_TASK_MODE;
+        // wchgat(list_win, -1, A_NORMAL, 0, NULL);
+        // mode = SELECT_TASK_MODE;
       }
       wrefresh(list_win);
     }
@@ -214,12 +230,15 @@ void notes_screen(sqlite3 *db_conn) {
         wclear(tasks_win);
         mode = SELECT_LIST_MODE;
         task_max_cur_pos = 0;
-        task_cur_pos = 1;
+        task_cur_pos = 0;
         deinit_list(task_list, (void (*)(void *)) & deinit_task);
       } else if (key == 'v') {
-        mark_task_as_done_in_db();
-        mark_task_as_done_in_win();
-        waddstr(tasks_win, "Done");
+        change_task_status(db_conn,
+                           ((Task *)get_list(task_list, task_cur_pos))->task_id,
+                           DONE);
+        change_task_status_win(tasks_win,
+                               (Task *)get_list(task_list, task_cur_pos),
+                               task_cur_pos, DONE);
       }
       wrefresh(tasks_win);
     }
@@ -294,6 +313,8 @@ int main(int argc, char *argv[]) {
 
   setlocale(LC_ALL, "");
   initscr();
+  init_pair(1, COLOR_GREEN, COLOR_BLACK);
+  start_color();
   curs_set(0);
   keypad(initscr(), true);
   raw();

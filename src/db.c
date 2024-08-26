@@ -62,9 +62,21 @@ void delete_task_from_db(sqlite3 *db_conn, int task_id) {
   sqlite3_finalize(delete_task_stmt);
 }
 
-void mark_task_as_done_in_db(sqlite3 *db_conn, int task_id) {
+void change_task_status(sqlite3 *db_conn, int task_id, Status status) {
   sqlite3_stmt *mark_as_done_stmt;
   char mark_as_done_query[200];
+  snprintf(mark_as_done_query, sizeof(mark_as_done_query),
+           "UPDATE %s status = %d WHERE task_id = %d", TASKS_TABLE_NAME, status,
+           task_id);
+  if (sqlite3_prepare(db_conn, mark_as_done_query, -1, &mark_as_done_stmt,
+                      NULL) != SQLITE_OK) {
+    addstr("Cannot prepare update statement");
+  }
+
+  if (sqlite3_step(mark_as_done_stmt) != SQLITE_DONE) {
+    addstr("Cannot update task");
+  }
+  sqlite3_finalize(mark_as_done_stmt);
 }
 
 List *get_tasks(sqlite3 *db_conn, int todo_list_id) {
