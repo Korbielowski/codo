@@ -50,7 +50,8 @@ void move_cur_down(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
 }
 
 void add_task_to_win(WINDOW *win, List *task_list, char *task_name,
-                     char *task_desc, int todo_list_id, int *max_cur_pos) {
+                     char *task_desc, int todo_list_id, int *max_cur_pos,
+                     int *cur_pos) {
   Task *task = malloc(sizeof(Task));
   task->name = malloc(strlen(task_name) * sizeof(task->name));
   task->desc = malloc(strlen(task_desc) * sizeof(task->desc));
@@ -58,38 +59,38 @@ void add_task_to_win(WINDOW *win, List *task_list, char *task_name,
   strcpy(task->name, task_name);
   strcpy(task->desc, task_desc);
   (*max_cur_pos)++;
+  (*cur_pos)++;
 
   append_list(task_list, task);
 
   mvwaddstr(win, task_list->occ_size - 1, 30, task_name);
   mvwaddstr(win, task_list->occ_size - 1, 30 + strlen(task_name) + 5,
             task_desc);
+  wchgat(win, -1, A_STANDOUT, 0, NULL);
   wrefresh(win);
 }
 
 void delete_task_from_win(WINDOW *win, List *task_list, int *cur_pos,
                           int *max_cur_pos) {
-  if (task_list->occ_size == 0) {
-    return;
-  }
+  remove_list(task_list, *cur_pos, (void (*)(void *)) & delete_task);
   // TODO: Actually good screen clearing when deleting records
-  wclrtoeol(win);
-  int x, y;
-  getyx(win, y, x);
-  for (int i = task_list->occ_size - 1; i >= *cur_pos; i--) {
+  for (int i = *cur_pos; i < task_list->occ_size; i++) {
     Task *task = (Task *)get_list(task_list, i);
+    wmove(win, i, 0);
+    wclrtoeol(win);
     mvwaddstr(win, i, 30, task->name);
     mvwaddstr(win, i, 30 + strlen(task->name) + 5, task->desc);
-    wmove(win, i, x);
-    wclrtoeol(win);
   }
-  remove_list(task_list, *cur_pos, (void (*)(void *)) & delete_task);
+  wmove(win, task_list->occ_size, 0);
+  wclrtoeol(win);
   if (*cur_pos == *max_cur_pos) {
     (*cur_pos)--;
     wmove(win, *cur_pos, 0);
     wchgat(win, -1, A_STANDOUT, 0, NULL);
   }
   (*max_cur_pos)--;
+  wmove(win, *cur_pos, 0);
+  wchgat(win, -1, A_STANDOUT, 0, NULL);
   wrefresh(win);
 }
 
@@ -214,7 +215,6 @@ void notes_screen(sqlite3 *db_conn) {
         mode = CREATE_TASK_MODE;
       } else if (key == (int)'d') {
         if (task_list->occ_size == 0) {
-          wrefresh(tasks_win);
           continue;
         }
         delete_task_from_db(
@@ -257,7 +257,7 @@ void notes_screen(sqlite3 *db_conn) {
       TodoList *todo = (TodoList *)get_list(todo_list, todo_cur_pos - 1);
       add_task_to_db(db_conn, task_name, task_desc, todo->list_id);
       add_task_to_win(tasks_win, task_list, task_name, task_desc, todo->list_id,
-                      &task_max_cur_pos);
+                      &task_max_cur_pos, &task_cur_pos);
 
       wborder(new_task_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
       werase(new_task_win);
