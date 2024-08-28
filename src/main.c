@@ -177,10 +177,7 @@ void notes_screen(sqlite3 *db_conn) {
         // mode = SELECT_TASK_MODE;
       }
       wrefresh(list_win);
-    }
-    // TODO: Fix task_cur_pos, two clicks to move, when using wmove function
-    // TODO: Change function and variable names because they are very confusing
-    else if (mode == SELECT_TASK_MODE) {
+    } else if (mode == SELECT_TASK_MODE) {
       if (!are_printed) {
         for (size_t i = 0; i < task_list->occ_size; i++) {
           Task *task = get_list(task_list, i);

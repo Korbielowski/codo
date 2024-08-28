@@ -45,6 +45,7 @@ void add_task_to_db(sqlite3 *db_conn, char *task_name, char *task_desc,
   sqlite3_finalize(add_task_stmt);
 }
 
+// ! Fix bug where deleted task is not saved in db for some reason
 void delete_task_from_db(sqlite3 *db_conn, int task_id) {
   char delete_task_query[TASKS_TABLE_NAME_LEN + 50];
   sqlite3_stmt *delete_task_stmt;
