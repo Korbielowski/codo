@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <wchar.h>
 
+const wchar_t TICK[] = L"\u2714";
+
 int init_files() {
   struct stat st = {0};
   if (stat("./test", &st)) {
@@ -55,6 +57,7 @@ void add_task_to_win(WINDOW *win, List *task_list, char *task_name,
   Task *task = malloc(sizeof(Task));
   task->name = malloc(strlen(task_name) * sizeof(task->name));
   task->desc = malloc(strlen(task_desc) * sizeof(task->desc));
+  task->status = IN_PROGESS;
 
   strcpy(task->name, task_name);
   strcpy(task->desc, task_desc);
@@ -94,16 +97,16 @@ void delete_task_from_win(WINDOW *win, List *task_list, int *cur_pos,
   wrefresh(win);
 }
 
-void change_task_status_win(WINDOW *win, Task *task, size_t cur_pos,
-                            Status status) {
-  task->status = status;
-  wchar_t characters[] = L"\u2714";
-  int x, y;
-  getmaxyx(win, y, x);
-  mvwprintw(win, cur_pos, x - 1, "%ls", characters);
+void change_task_status_win(WINDOW *win, Task *task, size_t cur_pos) {
+  if (task->status == IN_PROGESS) {
+    task->status = DONE;
+    mvwprintw(win, cur_pos, COLS - 22, "%ls", TICK);
+  } else {
+    task->status = IN_PROGESS;
+    mvwdelch(win, cur_pos, COLS - 22);
+  }
   // TODO: Change color and add checkmark next to done task
   // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
-  wrefresh(win);
 }
 
 // TODO: Change so that the version and other information about CNotes are taken
@@ -180,9 +183,12 @@ void notes_screen(sqlite3 *db_conn) {
     } else if (mode == SELECT_TASK_MODE) {
       if (!are_printed) {
         for (size_t i = 0; i < task_list->occ_size; i++) {
-          Task *task = get_list(task_list, i);
+          Task *task = (Task *)get_list(task_list, i);
           mvwaddstr(tasks_win, i, 30, task->name);
           mvwaddstr(tasks_win, i, 30 + strlen(task->name) + 5, task->desc);
+          if (task->status == DONE) {
+            mvwprintw(tasks_win, i, COLS - 22, "%ls", TICK);
+          }
         }
 
         task_max_cur_pos = task_list->occ_size - 1;
@@ -230,12 +236,10 @@ void notes_screen(sqlite3 *db_conn) {
         task_cur_pos = 0;
         deinit_list(task_list, (void (*)(void *)) & deinit_task);
       } else if (key == 'v') {
+        change_task_status_win(
+            tasks_win, (Task *)get_list(task_list, task_cur_pos), task_cur_pos);
         change_task_status(db_conn,
-                           ((Task *)get_list(task_list, task_cur_pos))->task_id,
-                           DONE);
-        change_task_status_win(tasks_win,
-                               (Task *)get_list(task_list, task_cur_pos),
-                               task_cur_pos, DONE);
+                           ((Task *)get_list(task_list, task_cur_pos)));
       }
       wrefresh(tasks_win);
     }

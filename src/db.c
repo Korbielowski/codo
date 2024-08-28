@@ -34,6 +34,11 @@ void add_task_to_db(sqlite3 *db_conn, char *task_name, char *task_desc,
            "INSERT INTO %s (task_name, task_description, list_id) VALUES "
            "('%s', '%s', %d)",
            TASKS_TABLE_NAME, task_name, task_desc, todo_list_id);
+  FILE *file;
+  file = fopen("filename.txt", "a");
+  fprintf(file, "values saved: %s %s %d %d\n", task_name, task_desc,
+          todo_list_id, IN_PROGESS);
+  fclose(file);
   if (sqlite3_prepare(db_conn, add_task_query, -1, &add_task_stmt, NULL) !=
       SQLITE_OK) {
     addstr("Can't prepare task addition statement");
@@ -63,12 +68,12 @@ void delete_task_from_db(sqlite3 *db_conn, int task_id) {
   sqlite3_finalize(delete_task_stmt);
 }
 
-void change_task_status(sqlite3 *db_conn, int task_id, Status status) {
+void change_task_status(sqlite3 *db_conn, Task *task) {
   sqlite3_stmt *mark_as_done_stmt;
   char mark_as_done_query[200];
   snprintf(mark_as_done_query, sizeof(mark_as_done_query),
-           "UPDATE %s status = %d WHERE task_id = %d", TASKS_TABLE_NAME, status,
-           task_id);
+           "UPDATE %s SET status = %d WHERE task_id = %d", TASKS_TABLE_NAME,
+           task->status, task->task_id);
   if (sqlite3_prepare(db_conn, mark_as_done_query, -1, &mark_as_done_stmt,
                       NULL) != SQLITE_OK) {
     addstr("Cannot prepare update statement");
@@ -78,6 +83,10 @@ void change_task_status(sqlite3 *db_conn, int task_id, Status status) {
     addstr("Cannot update task");
   }
   sqlite3_finalize(mark_as_done_stmt);
+  FILE *file;
+  file = fopen("filename.txt", "a");
+  fprintf(file, "write status: %d\n", task->status);
+  fclose(file);
 }
 
 List *get_tasks(sqlite3 *db_conn, int todo_list_id) {
@@ -109,6 +118,11 @@ List *get_tasks(sqlite3 *db_conn, int todo_list_id) {
     strcpy(task->desc, task_desc);
 
     task->status = sqlite3_column_int(tasks_stmt, 4);
+
+    FILE *file;
+    file = fopen("filename.txt", "a");
+    fprintf(file, "read status: %d\n", task->status);
+    fclose(file);
 
     append_list(task_list, task);
   }
