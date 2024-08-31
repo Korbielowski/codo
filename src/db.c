@@ -97,12 +97,12 @@ void change_task_status(sqlite3 *db_conn, Task *task) {
   sqlite3_finalize(mark_as_done_stmt);
 }
 
-List *get_tasks(sqlite3 *db_conn, int todo_list_id) {
+Array *get_tasks(sqlite3 *db_conn, int todo_list_id) {
   sqlite3_stmt *tasks_stmt;
   char tasks_query[200];
-  List *task_list = malloc(sizeof(List));
+  Array *task_array = malloc(sizeof(Array));
 
-  init_list(task_list);
+  init_array(task_array);
 
   sprintf(tasks_query, "SELECT * FROM %s WHERE list_id = %d", TASKS_TABLE_NAME,
           todo_list_id);
@@ -127,20 +127,20 @@ List *get_tasks(sqlite3 *db_conn, int todo_list_id) {
 
     task->status = sqlite3_column_int(tasks_stmt, 4);
 
-    append_list(task_list, task);
+    append_array(task_array, task);
   }
 
   sqlite3_finalize(tasks_stmt);
 
-  return task_list;
+  return task_array;
 }
 
-List *get_todo_lists(sqlite3 *db_conn) {
+Array *get_todo_lists(sqlite3 *db_conn) {
   sqlite3_stmt *todo_lists_stmt;
   char todo_lists_query[200];
-  List *todo_list = malloc(sizeof(List));
+  Array *todo_list_array = malloc(sizeof(Array));
 
-  init_list(todo_list);
+  init_array(todo_list_array);
 
   sprintf(todo_lists_query, "SELECT * FROM %s", TODO_TABLE_NAME);
   if (sqlite3_prepare(db_conn, todo_lists_query, -1, &todo_lists_stmt, NULL) !=
@@ -157,12 +157,12 @@ List *get_todo_lists(sqlite3 *db_conn) {
     todo->name = malloc(strlen(list_name) * sizeof(todo->name));
     strcpy(todo->name, list_name);
 
-    append_list(todo_list, todo);
+    append_array(todo_list_array, todo);
   }
 
   sqlite3_finalize(todo_lists_stmt);
 
-  return todo_list;
+  return todo_list_array;
 }
 
 sqlite3 *init_db() {

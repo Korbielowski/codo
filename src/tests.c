@@ -1,4 +1,4 @@
-#include "list.h"
+#include "array.h"
 #include <stdio.h>
 
 typedef struct {
@@ -50,31 +50,31 @@ void deinit_todo(TodoList *todo) {
 }
 
 int main() {
-  List *dyn_list = malloc(sizeof(List));
-  init_list(dyn_list);
+  Array *dyn_array = malloc(sizeof(Array));
+  init_list(dyn_array);
   for (int i = 0; i < 10; i++) {
     Task *task = malloc(sizeof(Task));
     task->name = malloc(4 * sizeof(char));
     task->desc = malloc(8 * sizeof(char));
     strcpy(task->name, "xdd");
     strcpy(task->desc, "cos tam");
-    append_list(dyn_list, task);
+    append_list(dyn_array, task);
   }
 
-  for (int i = 0; i < dyn_list->occ_size; i++) {
-    printf("Element %d: %s\n", i, ((Task *)get_list(dyn_list, i))->name);
+  for (int i = 0; i < dyn_array->occ_size; i++) {
+    printf("Element %d: %s\n", i, ((Task *)get_list(dyn_array, i))->name);
   }
 
-  size_t len = dyn_list->occ_size;
+  size_t len = dyn_array->occ_size;
   for (int i = 0; i < len; i++) {
     printf("Remove element: %d\n", i);
-    remove_list(dyn_list, 0, (void (*)(void *)) & delete_task);
+    remove_list(dyn_array, 0, (void (*)(void *)) & delete_task);
   }
 
-  for (int i = 0; i < dyn_list->occ_size; i++) {
-    printf("After removal %d: %s\n", i, ((Task *)get_list(dyn_list, i))->name);
+  for (int i = 0; i < dyn_array->occ_size; i++) {
+    printf("After removal %d: %s\n", i, ((Task *)get_list(dyn_array, i))->name);
   }
 
-  deinit_list(dyn_list, (void (*)(void *)) & deinit_task);
-  // free(dyn_list);
+  deinit_list(dyn_array, (void (*)(void *)) & deinit_task);
+  // free(dyn_array);
 }
