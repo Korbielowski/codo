@@ -25,21 +25,17 @@ bool check_if_table_exists(sqlite3 *db_conn, char *query) {
   return exists;
 }
 
-void add_task_to_db(sqlite3 *db_conn, char *task_name, char *task_desc,
-                    int todo_list_id) {
+int add_task_to_db(sqlite3 *db_conn, char *task_name, char *task_desc,
+                   int todo_list_id) {
   char add_task_query[TASKS_TABLE_NAME_LEN + TASK_DESC_LEN + 100];
   sqlite3_stmt *add_task_stmt;
+  int task_id;
 
   snprintf(add_task_query, sizeof(add_task_query),
            "INSERT INTO %s (task_name, task_description, list_id) VALUES "
            "('%s', '%s', %d)",
            TASKS_TABLE_NAME, task_name, task_desc, todo_list_id);
-  FILE *file;
-  file = fopen("filename.txt", "a");
-  fprintf(file, "values saved: %s %s %d %d\n", task_name, task_desc,
-          todo_list_id, IN_PROGESS);
-  fclose(file);
-  if (sqlite3_prepare(db_conn, add_task_query, -1, &add_task_stmt, NULL) !=
+  if (sqlite3_prepare_v2(db_conn, add_task_query, -1, &add_task_stmt, NULL) !=
       SQLITE_OK) {
     addstr("Can't prepare task addition statement");
   }
@@ -48,9 +44,26 @@ void add_task_to_db(sqlite3 *db_conn, char *task_name, char *task_desc,
     addstr("Can't add task");
   }
   sqlite3_finalize(add_task_stmt);
+
+  char get_task_id_query[TASKS_TABLE_NAME_LEN + TASKS_TABLE_NAME_LEN + 100];
+  sqlite3_stmt *get_task_id_stmt;
+  snprintf(get_task_id_query, sizeof(get_task_id_query),
+           "SELECT * FROM %s WHERE task_id = (SELECT MAX(task_id) FROM %s)",
+           TASKS_TABLE_NAME, TASKS_TABLE_NAME);
+  if (sqlite3_prepare_v2(db_conn, get_task_id_query, -1, &get_task_id_stmt,
+                         NULL) != SQLITE_OK) {
+    addstr("Can't prepare task addition statement");
+  }
+
+  if (sqlite3_step(get_task_id_stmt) == SQLITE_DONE) {
+    addstr("Can't add task");
+  } else {
+    task_id = sqlite3_column_int(get_task_id_stmt, 0);
+  }
+  sqlite3_finalize(get_task_id_stmt);
+  return task_id;
 }
 
-// ! Fix bug where deleted task is not saved in db for some reason
 void delete_task_from_db(sqlite3 *db_conn, int task_id) {
   char delete_task_query[TASKS_TABLE_NAME_LEN + 50];
   sqlite3_stmt *delete_task_stmt;
@@ -61,7 +74,6 @@ void delete_task_from_db(sqlite3 *db_conn, int task_id) {
                       NULL) != SQLITE_OK) {
     addstr("Can't prepare delete statement");
   }
-
   if (sqlite3_step(delete_task_stmt) != SQLITE_DONE) {
     addstr("Can't delete item from database");
   }
@@ -83,10 +95,6 @@ void change_task_status(sqlite3 *db_conn, Task *task) {
     addstr("Cannot update task");
   }
   sqlite3_finalize(mark_as_done_stmt);
-  FILE *file;
-  file = fopen("filename.txt", "a");
-  fprintf(file, "write status: %d\n", task->status);
-  fclose(file);
 }
 
 List *get_tasks(sqlite3 *db_conn, int todo_list_id) {
@@ -118,11 +126,6 @@ List *get_tasks(sqlite3 *db_conn, int todo_list_id) {
     strcpy(task->desc, task_desc);
 
     task->status = sqlite3_column_int(tasks_stmt, 4);
-
-    FILE *file;
-    file = fopen("filename.txt", "a");
-    fprintf(file, "read status: %d\n", task->status);
-    fclose(file);
 
     append_list(task_list, task);
   }
@@ -166,7 +169,8 @@ sqlite3 *init_db() {
   sqlite3 *db_conn;
   char *db_error_msg;
 
-  if (sqlite3_open(TODO_DB_FILE_NAME, &db_conn)) {
+  if (sqlite3_open_v2(TODO_DB_FILE_NAME, &db_conn,
+                      SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL)) {
     printf("Can't open the database\n");
     sqlite3_close(db_conn);
     return NULL;

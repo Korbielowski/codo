@@ -52,12 +52,13 @@ void move_cur_down(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
 }
 
 void add_task_to_win(WINDOW *win, List *task_list, char *task_name,
-                     char *task_desc, int todo_list_id, int *max_cur_pos,
-                     int *cur_pos) {
+                     char *task_desc, int todo_list_id, int task_id,
+                     int *max_cur_pos, int *cur_pos) {
   Task *task = malloc(sizeof(Task));
   task->name = malloc(strlen(task_name) * sizeof(task->name));
   task->desc = malloc(strlen(task_desc) * sizeof(task->desc));
   task->status = IN_PROGESS;
+  task->task_id = task_id;
 
   strcpy(task->name, task_name);
   strcpy(task->desc, task_desc);
@@ -256,9 +257,10 @@ void notes_screen(sqlite3 *db_conn) {
       mvwgetstr(new_task_win, 2, 1, task_desc);
 
       TodoList *todo = (TodoList *)get_list(todo_list, todo_cur_pos - 1);
-      add_task_to_db(db_conn, task_name, task_desc, todo->list_id);
+      int task_id =
+          add_task_to_db(db_conn, task_name, task_desc, todo->list_id);
       add_task_to_win(tasks_win, task_list, task_name, task_desc, todo->list_id,
-                      &task_max_cur_pos, &task_cur_pos);
+                      task_id, &task_max_cur_pos, &task_cur_pos);
 
       wborder(new_task_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
       werase(new_task_win);
