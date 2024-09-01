@@ -1,6 +1,6 @@
-#include "commands.h"
-#include "constants.h"
-#include "db.h"
+#include "../include/commands.h"
+#include "../include/constants.h"
+#include "../include/db.h"
 #include <locale.h>
 #include <ncurses.h>
 #include <sqlite3.h>
@@ -178,6 +178,7 @@ void notes_screen(sqlite3 *db_conn) {
         are_printed = false;
         mode = SELECT_TASK_MODE;
       } else if (key == (int)'a') {
+        add_todo_list_to_db(db_conn, "Good list :)");
         // wchgat(list_win, -1, A_NORMAL, 0, NULL);
         // mode = SELECT_TASK_MODE;
       }
