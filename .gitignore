@@ -1,4 +1,4 @@
-*db
-notes
-temp.c
+*.db
+*.txt
+codo
 .vscode/

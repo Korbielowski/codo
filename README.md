@@ -1,2 +1,2 @@
 # Codo
-Codo is a simple but powerful terminal todo list manager written in C.
+Codo is a simple yet powerful terminal to-do list manager written in C.
