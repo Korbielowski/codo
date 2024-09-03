@@ -59,12 +59,12 @@ int remove_array(Array *array, size_t index, void (*remove_func_p)(void *)) {
   return OP_OK;
 }
 
-void delete_task(Task *task) {
+void remove_task(Task *task) {
   free(task->name);
   free(task->desc);
 }
 
-void delete_todo(TodoList *todo) {
+void remove_todo(TodoList *todo) {
   free(todo->name);
   // free(todo->desc);
 }
