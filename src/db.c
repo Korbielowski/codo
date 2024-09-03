@@ -64,11 +64,6 @@ int add_task_to_db(sqlite3 *db_conn, char *task_name, char *task_desc,
     task_id = sqlite3_column_int(get_task_id_stmt, 0);
   }
 
-  FILE *file;
-  file = fopen("data.txt", "a");
-  fprintf(file, "Task id: %d\nQuery: %s\n\n", task_id, add_task_query);
-  fclose(file);
-
   sqlite3_finalize(get_task_id_stmt);
   return task_id;
 }
@@ -128,7 +123,7 @@ void delete_task_from_db(sqlite3 *db_conn, int task_id) {
 
 void change_task_status(sqlite3 *db_conn, Task *task) {
   sqlite3_stmt *mark_as_done_stmt;
-  char mark_as_done_query[200];
+  char mark_as_done_query[TASKS_TABLE_NAME_LEN + 100];
   snprintf(mark_as_done_query, sizeof(mark_as_done_query),
            "UPDATE %s SET task_status = %d WHERE task_id = %d",
            TASKS_TABLE_NAME, task->status, task->task_id);

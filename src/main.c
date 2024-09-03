@@ -5,6 +5,7 @@
 #include <ncurses.h>
 #include <sqlite3.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <wchar.h>
@@ -62,8 +63,11 @@ void add_task_to_win(WINDOW *win, Array *task_array, char *task_name,
 
   strcpy(task->name, task_name);
   strcpy(task->desc, task_desc);
-  (*max_cur_pos)++;
-  (*cur_pos)++;
+
+  if (task_array->occ_size != 0) {
+    (*max_cur_pos)++;
+    (*cur_pos)++;
+  }
 
   append_array(task_array, task);
 
@@ -87,12 +91,18 @@ void delete_task_from_win(WINDOW *win, Array *task_array, int *cur_pos,
   }
   wmove(win, task_array->occ_size, 0);
   wclrtoeol(win);
+
+  if (task_array->occ_size == 0) {
+    return;
+  }
+
   if (*cur_pos == *max_cur_pos) {
     (*cur_pos)--;
     wmove(win, *cur_pos, 0);
     wchgat(win, -1, A_STANDOUT, 0, NULL);
   }
   (*max_cur_pos)--;
+
   wmove(win, *cur_pos, 0);
   wchgat(win, -1, A_STANDOUT, 0, NULL);
   wrefresh(win);
@@ -147,9 +157,6 @@ void notes_screen(sqlite3 *db_conn) {
   keypad(list_win, true);
   keypad(tasks_win, true);
   noecho();
-  // wchar_t characters[] = L"\u0837";
-  // const char martini[5] = {0xF0, 0x9F, 0x98, 0x81, '\0'};
-  // wprintw(list_win, "%ls :", characters);
   waddstr(list_win, "Todo lists:");
 
   for (size_t i = 0; i < todo_list_array->occ_size; i++) {
@@ -171,11 +178,13 @@ void notes_screen(sqlite3 *db_conn) {
       } else if (key == KEY_UP) {
         move_cur_up(list_win, &todo_cur_pos, todo_max_cur_pos, true);
       } else if (key == KEY_RIGHT) {
+        if (todo_list_array->occ_size == 0) {
+          continue;
+        }
         wchgat(list_win, -1, A_NORMAL, 0, NULL);
         TodoList *todo =
             (TodoList *)get_array(todo_list_array, todo_cur_pos - 1);
         task_array = get_tasks(db_conn, todo->list_id);
-        are_printed = false;
         mode = SELECT_TASK_MODE;
       } else if (key == (int)'a') {
         add_todo_list_to_db(db_conn, "Good list :)");
@@ -184,7 +193,7 @@ void notes_screen(sqlite3 *db_conn) {
       }
       wrefresh(list_win);
     } else if (mode == SELECT_TASK_MODE) {
-      if (!are_printed) {
+      if (!are_printed && task_array->occ_size > 0) {
         for (size_t i = 0; i < task_array->occ_size; i++) {
           Task *task = (Task *)get_array(task_array, i);
           mvwaddstr(tasks_win, i, 30, task->name);
@@ -195,9 +204,7 @@ void notes_screen(sqlite3 *db_conn) {
         }
 
         task_max_cur_pos = task_array->occ_size - 1;
-        if (task_cur_pos > task_max_cur_pos) {
-          task_cur_pos = 0;
-        }
+        task_cur_pos = 0;
 
         wmove(tasks_win, task_cur_pos, 0);
         wchgat(tasks_win, -1, A_STANDOUT, 0, NULL);
@@ -213,7 +220,6 @@ void notes_screen(sqlite3 *db_conn) {
       } else if (key == KEY_UP) {
         move_cur_up(tasks_win, &task_cur_pos, task_max_cur_pos, false);
       } else if (key == (int)'a') {
-        // waddstr(tasks_win, "Added new item");
         wchgat(tasks_win, -1, A_NORMAL, 0, NULL);
         mode = CREATE_TASK_MODE;
       } else if (key == (int)'e') {
@@ -235,15 +241,19 @@ void notes_screen(sqlite3 *db_conn) {
       } else if (key == (int)'c') {
         wclear(tasks_win);
         mode = SELECT_LIST_MODE;
-        task_max_cur_pos = 0;
-        task_cur_pos = 0;
+        // task_max_cur_pos = -1;
+        // task_cur_pos = -1;
+        are_printed = false;
         deinit_array(task_array, (void (*)(void *)) & deinit_task);
       } else if (key == 'v') {
+        if (task_array->occ_size == 0) {
+          continue;
+        }
         change_task_status_win(tasks_win,
                                (Task *)get_array(task_array, task_cur_pos),
                                task_cur_pos);
         change_task_status(db_conn,
-                           ((Task *)get_array(task_array, task_cur_pos)));
+                           (Task *)get_array(task_array, task_cur_pos));
       }
       wrefresh(tasks_win);
     }
