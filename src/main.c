@@ -30,6 +30,9 @@ int init_files() {
   return 0;
 }
 
+// TODO: Change how this function behaves to make any jump, void
+// move_cur_up(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one, int
+// jump) {
 void move_cur_up(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
   short min_pos = from_one ? 1 : 0;
   wchgat(win, -1, A_NORMAL, 0, NULL);
@@ -72,7 +75,7 @@ void add_todo(WINDOW *win, sqlite3 *db_conn, Array *array, char *name,
   wchgat(win, -1, A_STANDOUT, 0, NULL);
   wrefresh(win);
 
-  add_todo_db(db_conn, name);
+  todo->list_id = add_todo_db(db_conn, name);
 }
 
 void delete_todo(WINDOW *win, sqlite3 *db_conn, Array *array, int *cur_pos,
@@ -118,9 +121,28 @@ void change_todo_status(WINDOW *win, sqlite3 *db_conn, Task *task,
   // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
 }
 
-void add_task_win(sqlite3 *db_conn, Array *array) {}
+void new_todo_win(sqlite3 *db_conn, Array *array, WINDOW *win, int *cur_pos,
+                  int *max_cur_pos) {
+  echo();
+  char name[TODO_NAME_LEN + 1];
+  char desc[TODO_DESC_LEN + 1];
+  WINDOW *new_todo_win = newwin(10, COLS - 20 - 1, LINES - 10, 20);
 
-void add_todo_win(sqlite3 *db_conn, Array *array) {}
+  box(new_todo_win, 0, 0);
+  wrefresh(new_todo_win);
+  mvwgetstr(new_todo_win, 1, 1, name);
+  mvwgetstr(new_todo_win, 2, 1, desc);
+
+  add_todo(win, db_conn, array, name, desc, cur_pos, max_cur_pos);
+
+  wborder(new_todo_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
+  werase(new_todo_win);
+  wrefresh(new_todo_win);
+  delwin(new_todo_win);
+  noecho();
+}
+
+void new_task_win(sqlite3 *db_conn, Array *array) {}
 
 void add_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, char *task_name,
               char *task_desc, int todo_list_id, int *max_cur_pos,
@@ -204,14 +226,34 @@ void change_task_status(WINDOW *win, sqlite3 *db_conn, Array *array,
   // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
 }
 
-// TODO: Change so that the version and other information about CNotes are taken
-// from constants.h dynamically
+void print_tasks(WINDOW *tasks_win, Array **task_array, Array *todo_array,
+                 sqlite3 *db_conn, int todo_cur_pos) {
+  if (*task_array != NULL) {
+    wclear(tasks_win);
+    wrefresh(tasks_win);
+    deinit_array(*task_array, (void (*)(void *)) & deinit_task);
+  }
+  TodoList *todo = (TodoList *)get_array(todo_array, todo_cur_pos - 1);
+  *task_array = get_tasks(db_conn, todo->list_id);
+  for (size_t i = 0; i < (*task_array)->occ_size; i++) {
+    Task *task = (Task *)get_array(*task_array, i);
+    mvwaddstr(tasks_win, i, 30, task->name);
+    mvwaddstr(tasks_win, i, 30 + strlen(task->name) + 5, task->desc);
+    if (task->status == DONE) {
+      mvwprintw(tasks_win, i, COLS - 22, "%ls", TICK);
+    }
+  }
+  wrefresh(tasks_win);
+}
+
+// TODO: Change so that the version and other information about CNotes are
+// taken from constants.h dynamically
 void welcome_screen() {
   int rows_number, columns_number;
   getmaxyx(stdscr, rows_number, columns_number);
-  char *welcome_msg =
-      "CNotes 0.1 VERSION\nCreate notes todos quickly\nThis is just a welcome "
-      "page, it will look diffetently in the future";
+  char *welcome_msg = "CNotes 0.1 VERSION\nCreate notes todos quickly\nThis "
+                      "is just a welcome "
+                      "page, it will look diffetently in the future";
   clear();
   mvaddstr(rows_number / 2, columns_number / 2, welcome_msg);
   getch();
@@ -229,7 +271,7 @@ void notes_screen(sqlite3 *db_conn) {
   WINDOW *tasks_win = newwin(LINES - 1, COLS - 1 - 20, 0, 20);
   WINDOW *todo_win = newwin(LINES - 1, 20, 0, 0);
   Array *todo_list_array = get_todos(db_conn);
-  Array *task_array;
+  Array *task_array = NULL;
   int key;
   int todo_cur_pos = 1;
   int task_cur_pos = 0;
@@ -248,10 +290,15 @@ void notes_screen(sqlite3 *db_conn) {
     mvwaddstr(todo_win, i + 1, 0, todo->name);
   }
   todo_max_cur_pos = todo_list_array->occ_size;
+  TodoList *todo = (TodoList *)get_array(todo_list_array, todo_cur_pos - 1);
+  task_array = get_tasks(db_conn, todo->list_id);
 
   while (true) {
     if (mode == SELECT_LIST_MODE) {
-      // TODO: Add check to not draw this everytime (Same as in the other modes)
+      // TODO: Add check to not draw this everytime (Same as in the other
+      // modes)
+      print_tasks(tasks_win, &task_array, todo_list_array, db_conn,
+                  todo_cur_pos);
       wmove(todo_win, todo_cur_pos, 0);
       wchgat(todo_win, -1, A_STANDOUT, 0, NULL);
       wrefresh(todo_win);
@@ -266,11 +313,10 @@ void notes_screen(sqlite3 *db_conn) {
           continue;
         }
         wchgat(todo_win, -1, A_NORMAL, 0, NULL);
-        TodoList *todo =
-            (TodoList *)get_array(todo_list_array, todo_cur_pos - 1);
-        task_array = get_tasks(db_conn, todo->list_id);
         mode = SELECT_TASK_MODE;
       } else if (key == (int)'a') {
+        new_todo_win(db_conn, todo_list_array, todo_win, &todo_cur_pos,
+                     &todo_max_cur_pos);
         // add_todo(todo_win, db_conn, todo_list_array, todo_cur_pos);
         //  wchgat(todo_win, -1, A_NORMAL, 0, NULL);
         //  mode = SELECT_TASK_MODE;
@@ -278,6 +324,7 @@ void notes_screen(sqlite3 *db_conn) {
       wrefresh(todo_win);
     } else if (mode == SELECT_TASK_MODE) {
       if (!are_printed && task_array->occ_size > 0) {
+        wclear(tasks_win);
         for (size_t i = 0; i < task_array->occ_size; i++) {
           Task *task = (Task *)get_array(task_array, i);
           mvwaddstr(tasks_win, i, 30, task->name);
@@ -324,6 +371,7 @@ void notes_screen(sqlite3 *db_conn) {
         // task_cur_pos = -1;
         are_printed = false;
         deinit_array(task_array, (void (*)(void *)) & deinit_task);
+        task_array = NULL;
       } else if (key == 'v') {
         change_task_status(tasks_win, db_conn, task_array, task_cur_pos);
       }

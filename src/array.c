@@ -15,7 +15,6 @@ int init_array(Array *array) {
 void deinit_array(Array *array, void (*deinit_func_p)(void *)) {
   if (deinit_func_p != NULL) {
     for (int i = 0; i < array->occ_size; i++) {
-      printf("destroying index:%d\n", i);
       (*deinit_func_p)(array->arr[i]);
     }
   }
