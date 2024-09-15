@@ -18,7 +18,7 @@ make install
     - [ ] Edit
     - [X] Change status
 - [ ] List operations
-    - [ ] Add
+    - [X] Add
     - [ ] Delete
     - [ ] Edit
     - [ ] Change status
