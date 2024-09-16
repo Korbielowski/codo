@@ -18,8 +18,8 @@ make install
     - [ ] Edit
     - [X] Change status
 - [ ] List operations
-    - [ ] Add
-    - [ ] Delete
+    - [X] Add
+    - [X] Delete
     - [ ] Edit
     - [ ] Change status
 - [ ] Subtasks

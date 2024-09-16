@@ -16,3 +16,4 @@ Array *get_tasks(sqlite3 *db_conn, int todo_list_id);
 // Todo list related operations
 Array *get_todos(sqlite3 *db_conn);
 int add_todo_db(sqlite3 *db_conn, char *list_name);
+void delete_todo_db(sqlite3 *db_conn, int todo_id);
