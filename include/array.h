@@ -22,9 +22,9 @@ int append_array(Array *array, void *item);
 
 int remove_array(Array *array, size_t index, void (*remove_func_p)(void *));
 
-void delete_task(Task *task);
+void remove_task(Task *task);
 
-void delete_todo(TodoList *todo);
+void remove_todo(TodoList *todo);
 
 void deinit_task(Task *task);
 

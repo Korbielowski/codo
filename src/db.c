@@ -27,8 +27,39 @@ bool check_if_table_exists(sqlite3 *db_conn, char *query) {
   return exists;
 }
 
-int add_task_to_db(sqlite3 *db_conn, char *task_name, char *task_desc,
-                   int todo_list_id) {
+void delete_todo_db(sqlite3 *db_conn, int todo_id) {
+  char delete_todo_query[TODO_TABLE_NAME_LEN + 50];
+  char delete_tasks_query[TASKS_TABLE_NAME_LEN + 100];
+  sqlite3_stmt *delete_todo_stmt;
+  sqlite3_stmt *delete_tasks_stmt;
+
+  // Delete todo list
+  snprintf(delete_todo_query, sizeof(delete_todo_query),
+           "DELETE FROM %s WHERE list_id = %d", TODO_TABLE_NAME, todo_id);
+  if (sqlite3_prepare(db_conn, delete_todo_query, -1, &delete_todo_stmt,
+                      NULL) != SQLITE_OK) {
+    addstr("Can't prepare delete statement");
+  }
+  if (sqlite3_step(delete_todo_stmt) != SQLITE_DONE) {
+    addstr("Can't delete item from database");
+  }
+  sqlite3_finalize(delete_todo_stmt);
+
+  // Delete all tasks related to deleted todo list
+  snprintf(delete_tasks_query, sizeof(delete_tasks_query),
+           "DELETE FROM %s WHERE list_id = %d", TASKS_TABLE_NAME, todo_id);
+  if (sqlite3_prepare(db_conn, delete_tasks_query, -1, &delete_tasks_stmt,
+                      NULL) != SQLITE_OK) {
+    addstr("Can't prepare delete statement");
+  }
+  if (sqlite3_step(delete_tasks_stmt) != SQLITE_DONE) {
+    addstr("Can't delete item from database");
+  }
+  sqlite3_finalize(delete_tasks_stmt);
+}
+
+int add_task_db(sqlite3 *db_conn, char *task_name, char *task_desc,
+                int todo_list_id) {
   char add_task_query[TASKS_TABLE_NAME_LEN + TASK_DESC_LEN + 100];
   sqlite3_stmt *add_task_stmt;
   int task_id;
@@ -68,7 +99,7 @@ int add_task_to_db(sqlite3 *db_conn, char *task_name, char *task_desc,
   return task_id;
 }
 
-int add_todo_list_to_db(sqlite3 *db_conn, char *list_name) {
+int add_todo_db(sqlite3 *db_conn, char *list_name) {
   char add_todo_list_query[TODO_TABLE_NAME_LEN + 100];
   sqlite3_stmt *add_todo_list_stmt;
   int todo_list_id;
@@ -105,7 +136,7 @@ int add_todo_list_to_db(sqlite3 *db_conn, char *list_name) {
   return todo_list_id;
 }
 
-void delete_task_from_db(sqlite3 *db_conn, int task_id) {
+void delete_task_db(sqlite3 *db_conn, int task_id) {
   char delete_task_query[TASKS_TABLE_NAME_LEN + 50];
   sqlite3_stmt *delete_task_stmt;
 
@@ -121,7 +152,7 @@ void delete_task_from_db(sqlite3 *db_conn, int task_id) {
   sqlite3_finalize(delete_task_stmt);
 }
 
-void change_task_status(sqlite3 *db_conn, Task *task) {
+void change_task_status_db(sqlite3 *db_conn, Task *task) {
   sqlite3_stmt *mark_as_done_stmt;
   char mark_as_done_query[TASKS_TABLE_NAME_LEN + 100];
   snprintf(mark_as_done_query, sizeof(mark_as_done_query),
@@ -176,7 +207,7 @@ Array *get_tasks(sqlite3 *db_conn, int todo_list_id) {
   return task_array;
 }
 
-Array *get_todo_lists(sqlite3 *db_conn) {
+Array *get_todos(sqlite3 *db_conn) {
   sqlite3_stmt *todo_lists_stmt;
   char todo_lists_query[200];
   Array *todo_list_array = malloc(sizeof(Array));

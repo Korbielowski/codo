@@ -12,10 +12,20 @@ make install
 
 ## Roadmap
 
-- [ ] Task operations (add, delete, edit, change status)
-- [ ] List operations (add, delete, edit, change status)
+- [ ] Task operations
+    - [X] Add
+    - [X] Delete
+    - [ ] Edit
+    - [X] Change status
+- [ ] List operations
+    - [X] Add
+    - [X] Delete
+    - [ ] Edit
+    - [ ] Change status
 - [ ] Subtasks
+- [ ] Details window
 - [ ] Color themes
 - [ ] Keymaps
 - [ ] Config files
+- [ ] Search
 - [ ] Scalable interface
