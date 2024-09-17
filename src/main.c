@@ -97,6 +97,10 @@ void delete_todo(WINDOW *win, sqlite3 *db_conn, Array *array, int *cur_pos,
   wmove(win, array->occ_size + 1, 0);
   wclrtoeol(win);
 
+  if (array->occ_size == 0) {
+    return;
+  }
+
   if (*cur_pos == *max_cur_pos) {
     (*cur_pos)--;
     wmove(win, *cur_pos, 0);
@@ -290,7 +294,8 @@ void notes_screen(sqlite3 *db_conn) {
   noecho();
   waddstr(todo_win, "Todo lists:");
 
-  // FixME: after starting app with no todo lists, and adding new one, codo crashes
+  // FixME: after starting app with no todo lists, and adding new one, codo
+  // crashes
   if (todo_list_array->occ_size > 0) {
     for (size_t i = 0; i < todo_list_array->occ_size; i++) {
       TodoList *todo = (TodoList *)get_array(todo_list_array, i);
