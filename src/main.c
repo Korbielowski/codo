@@ -83,16 +83,15 @@ void delete_todo(WINDOW *win, sqlite3 *db_conn, Array *array, int *cur_pos,
   if (array->occ_size == 0) {
     return;
   }
-
   delete_todo_db(db_conn,
                  ((TodoList *)get_array(array, (*cur_pos) - 1))->list_id);
   remove_array(array, (*cur_pos) - 1, (void (*)(void *)) & remove_todo);
   // TODO: Actually good screen clearing when deleting records
-  for (int i = *cur_pos; i < array->occ_size; i++) {
+  for (int i = (*cur_pos) - 1; i < array->occ_size; i++) {
     TodoList *todo = (TodoList *)get_array(array, i);
-    wmove(win, i, 0);
+    wmove(win, i + 1, 0);
     wclrtoeol(win);
-    mvwaddstr(win, i, 0, todo->name);
+    mvwaddstr(win, i + 1, 0, todo->name);
   }
   wmove(win, array->occ_size + 1, 0);
   wclrtoeol(win);
@@ -113,15 +112,17 @@ void delete_todo(WINDOW *win, sqlite3 *db_conn, Array *array, int *cur_pos,
   wrefresh(win);
 }
 
-void change_todo_status(WINDOW *win, sqlite3 *db_conn, Task *task,
+void change_todo_status(WINDOW *win, sqlite3 *db_conn, Array *array,
                         size_t cur_pos) {
-  if (task->status == IN_PROGESS) {
-    task->status = DONE;
+  TodoList *todo = (TodoList *)get_array(array, cur_pos - 1);
+  if (todo->status == IN_PROGESS) {
+    todo->status = DONE;
     mvwprintw(win, cur_pos, COLS - 2, "%ls", TICK);
   } else {
-    task->status = IN_PROGESS;
+    todo->status = IN_PROGESS;
     mvwdelch(win, cur_pos, COLS - 2);
   }
+  change_todo_status_db(db_conn, todo);
   // TODO: Change color and add checkmark next to done task
   // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
 }
@@ -336,6 +337,10 @@ void notes_screen(sqlite3 *db_conn) {
       } else if (key == (int)'d') {
         delete_todo(todo_win, db_conn, todo_list_array, &todo_cur_pos,
                     &todo_max_cur_pos);
+      } else if (key == (int)'x') {
+        deinit_array(task_array, (void (*)(void *)) & deinit_task);
+        deinit_array(todo_list_array, (void (*)(void *)) & deinit_todo);
+        return;
       }
       wrefresh(todo_win);
     } else if (mode == SELECT_TASK_MODE) {
@@ -390,6 +395,7 @@ void notes_screen(sqlite3 *db_conn) {
         task_array = NULL;
       } else if (key == 'v') {
         change_task_status(tasks_win, db_conn, task_array, task_cur_pos);
+        change_todo_status(todo_win, db_conn, todo_list_array, todo_cur_pos);
       }
       wrefresh(tasks_win);
     }

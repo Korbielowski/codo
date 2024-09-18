@@ -13,6 +13,7 @@ typedef struct {
   char *name;
   char *desc;
   int list_id;
+  Status status;
 } TodoList;
 
 typedef struct {

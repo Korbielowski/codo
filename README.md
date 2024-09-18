@@ -10,6 +10,11 @@ make
 make install
 ```
 
+### Dependencies
+```bash
+apt install sqlite3 libncursesw5-dev
+```
+
 ## Roadmap
 
 - [ ] Task operations
