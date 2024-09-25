@@ -14,7 +14,7 @@ void change_task_status_db(sqlite3 *db_conn, Task *task);
 Array *get_tasks(sqlite3 *db_conn, int todo_list_id);
 
 // Todo list related operations
-int add_todo_db(sqlite3 *db_conn, char *list_name);
+int add_todo_db(sqlite3 *db_conn, char *list_name, char* list_desc, Status status);
 void delete_todo_db(sqlite3 *db_conn, int todo_id);
 void change_todo_status_db(sqlite3 *db_conn, TodoList *todo);
 Array *get_todos(sqlite3 *db_conn);

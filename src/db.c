@@ -19,8 +19,10 @@ sqlite3 *init_db() {
   if (!check_if_table_exists(db_conn, TODO_TABLE_NAME)) {
     char create_todo_table[300];
     snprintf(create_todo_table, sizeof(create_todo_table),
-             "CREATE TABLE %s (list_id INTEGER PRIMARY KEY, list_name "
-             "VARCHAR(100) NOT NULL)",
+             "CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY,\
+              name VARCHAR(100) NOT NULL,\
+              desc VARCHAR(200),\
+              status INTEGER NOT NULL)",
              TODO_TABLE_NAME);
     if (sqlite3_exec(db_conn, create_todo_table, NULL, 0, &db_error_msg) !=
         SQLITE_OK) {
@@ -33,14 +35,14 @@ sqlite3 *init_db() {
 
   if (!check_if_table_exists(db_conn, TASKS_TABLE_NAME)) {
     char create_tasks_table[400];
-    snprintf(
-        create_tasks_table, sizeof(create_tasks_table),
-        "CREATE TABLE %s (task_id INTEGER PRIMARY KEY, list_id INTEGER NOT NULL,\
-              task_name VARCHAR(100) NOT NULL,\
-              task_desc VARCHAR(200),\
-              task_status INTEGER NOT NULL, \
+    snprintf(create_tasks_table, sizeof(create_tasks_table),
+             "CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY,\
+              list_id INTEGER NOT NULL,\
+              name VARCHAR(100) NOT NULL,\
+              desc VARCHAR(200),\
+              status INTEGER NOT NULL, \
               FOREIGN KEY (list_id) REFERENCES %s (list_id))",
-        TASKS_TABLE_NAME, TODO_TABLE_NAME);
+             TASKS_TABLE_NAME, TODO_TABLE_NAME);
     if (sqlite3_exec(db_conn, create_tasks_table, NULL, 0, &db_error_msg) !=
         SQLITE_OK) {
       printf("Can't create the tasks table: %s\n", db_error_msg);
@@ -81,7 +83,7 @@ int add_task_db(sqlite3 *db_conn, char *task_name, char *task_desc,
   int task_id;
 
   snprintf(add_task_query, sizeof(add_task_query),
-           "INSERT INTO %s (task_name, task_desc, list_id, task_status) "
+           "INSERT INTO %s (name, desc, list_id, status) "
            "VALUES "
            "('%s', '%s', %d, %d)",
            TASKS_TABLE_NAME, task_name, task_desc, todo_list_id, IN_PROGESS);
@@ -98,7 +100,7 @@ int add_task_db(sqlite3 *db_conn, char *task_name, char *task_desc,
   char get_task_id_query[TASKS_TABLE_NAME_LEN + TASKS_TABLE_NAME_LEN + 100];
   sqlite3_stmt *get_task_id_stmt;
   snprintf(get_task_id_query, sizeof(get_task_id_query),
-           "SELECT * FROM %s WHERE task_id = (SELECT MAX(task_id) FROM %s)",
+           "SELECT * FROM %s WHERE id = (SELECT MAX(id) FROM %s)",
            TASKS_TABLE_NAME, TASKS_TABLE_NAME);
   if (sqlite3_prepare_v2(db_conn, get_task_id_query, -1, &get_task_id_stmt,
                          NULL) != SQLITE_OK) {
@@ -120,7 +122,7 @@ void delete_task_db(sqlite3 *db_conn, int task_id) {
   sqlite3_stmt *delete_task_stmt;
 
   snprintf(delete_task_query, sizeof(delete_task_query),
-           "DELETE FROM %s WHERE task_id = %d", TASKS_TABLE_NAME, task_id);
+           "DELETE FROM %s WHERE id = %d", TASKS_TABLE_NAME, task_id);
   if (sqlite3_prepare(db_conn, delete_task_query, -1, &delete_task_stmt,
                       NULL) != SQLITE_OK) {
     addstr("Can't prepare delete statement");
@@ -135,8 +137,8 @@ void change_task_status_db(sqlite3 *db_conn, Task *task) {
   sqlite3_stmt *mark_as_done_stmt;
   char mark_as_done_query[TASKS_TABLE_NAME_LEN + 100];
   snprintf(mark_as_done_query, sizeof(mark_as_done_query),
-           "UPDATE %s SET task_status = %d WHERE task_id = %d",
-           TASKS_TABLE_NAME, task->status, task->task_id);
+           "UPDATE %s SET status = %d WHERE id = %d", TASKS_TABLE_NAME,
+           task->status, task->task_id);
   if (sqlite3_prepare(db_conn, mark_as_done_query, -1, &mark_as_done_stmt,
                       NULL) != SQLITE_OK) {
     addstr("Cannot prepare update statement");
@@ -186,14 +188,15 @@ Array *get_tasks(sqlite3 *db_conn, int todo_list_id) {
   return task_array;
 }
 
-int add_todo_db(sqlite3 *db_conn, char *list_name) {
+int add_todo_db(sqlite3 *db_conn, char *list_name, char *list_desc,
+                Status status) {
   char add_todo_list_query[TODO_TABLE_NAME_LEN + 100];
   sqlite3_stmt *add_todo_list_stmt;
   int todo_list_id;
 
   snprintf(add_todo_list_query, sizeof(add_todo_list_query),
-           "INSERT INTO %s (list_name) VALUES ('%s')", TODO_TABLE_NAME,
-           list_name);
+           "INSERT INTO %s (name, desc, status) VALUES ('%s', '%s', %d)",
+           TODO_TABLE_NAME, list_name, list_desc, status);
   if (sqlite3_prepare_v2(db_conn, add_todo_list_query, -1, &add_todo_list_stmt,
                          NULL) != SQLITE_OK) {
     addstr("Can't prepare task addition statement");
@@ -207,7 +210,7 @@ int add_todo_db(sqlite3 *db_conn, char *list_name) {
   char get_todo_list_id_query[TODO_TABLE_NAME_LEN * 2 + 100];
   sqlite3_stmt *get_todo_list_id_stmt;
   snprintf(get_todo_list_id_query, sizeof(get_todo_list_id_query),
-           "SELECT * FROM %s WHERE list_id = (SELECT MAX(list_id) FROM %s)",
+           "SELECT * FROM %s WHERE id = (SELECT MAX(id) FROM %s)",
            TODO_TABLE_NAME, TODO_TABLE_NAME);
   if (sqlite3_prepare_v2(db_conn, get_todo_list_id_query, -1,
                          &get_todo_list_id_stmt, NULL) != SQLITE_OK) {
@@ -231,7 +234,7 @@ void delete_todo_db(sqlite3 *db_conn, int todo_id) {
 
   // Delete todo list
   snprintf(delete_todo_query, sizeof(delete_todo_query),
-           "DELETE FROM %s WHERE list_id = %d", TODO_TABLE_NAME, todo_id);
+           "DELETE FROM %s WHERE id = %d", TODO_TABLE_NAME, todo_id);
   if (sqlite3_prepare(db_conn, delete_todo_query, -1, &delete_todo_stmt,
                       NULL) != SQLITE_OK) {
     addstr("Can't prepare delete statement");
@@ -243,7 +246,7 @@ void delete_todo_db(sqlite3 *db_conn, int todo_id) {
 
   // Delete all tasks related to deleted todo list
   snprintf(delete_tasks_query, sizeof(delete_tasks_query),
-           "DELETE FROM %s WHERE list_id = %d", TASKS_TABLE_NAME, todo_id);
+           "DELETE FROM %s WHERE id = %d", TASKS_TABLE_NAME, todo_id);
   if (sqlite3_prepare(db_conn, delete_tasks_query, -1, &delete_tasks_stmt,
                       NULL) != SQLITE_OK) {
     addstr("Can't prepare delete statement");
@@ -258,7 +261,7 @@ void change_todo_status_db(sqlite3 *db_conn, TodoList *todo) {
   sqlite3_stmt *change_status_stmt;
   char change_status_query[TODO_TABLE_NAME_LEN + 100];
   snprintf(change_status_query, sizeof(change_status_query),
-           "UPDATE %s SET task_status = %d WHERE task_id = %d", TODO_TABLE_NAME,
+           "UPDATE %s SET status = %d WHERE id = %d", TODO_TABLE_NAME,
            todo->status, todo->list_id);
   if (sqlite3_prepare(db_conn, change_status_query, -1, &change_status_stmt,
                       NULL) != SQLITE_OK) {
