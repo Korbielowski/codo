@@ -124,12 +124,12 @@ void change_todo_status(WINDOW *win, sqlite3 *db_conn, Array *todo_array,
   TodoList *todo = (TodoList *)get_array(todo_array, cur_pos - 1);
   if (all_todo_done && todo->status == IN_PROGESS) {
     todo->status = DONE;
-    mvwprintw(win, cur_pos, 0, "%ls", TICK);
+    mvwprintw(win, cur_pos, 19, "%ls", TICK);
   } else if (all_todo_done && todo->status == DONE) {
     return;
   } else {
     todo->status = IN_PROGESS;
-    mvwdelch(win, cur_pos, 0);
+    mvwdelch(win, cur_pos, 19);
   }
   wrefresh(win);
   change_todo_status_db(db_conn, todo);
