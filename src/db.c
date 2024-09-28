@@ -296,6 +296,8 @@ Array *get_todos(sqlite3 *db_conn) {
     todo->name = malloc(strlen(list_name) * sizeof(todo->name));
     strcpy(todo->name, list_name);
 
+    todo->status = (int)sqlite3_column_int(todo_lists_stmt, 3);
+
     append_array(todo_list_array, todo);
   }
 
