@@ -274,6 +274,24 @@ void change_todo_status_db(sqlite3 *db_conn, TodoList *todo) {
   sqlite3_finalize(change_status_stmt);
 }
 
+void edit_todo_db(sqlite3 *db_conn, TodoList *todo, char *new_name,
+                  char *new_desc) {
+  sqlite3_stmt *edit_todo_stmt;
+  char edit_todo_query[TODO_TABLE_NAME_LEN + 200];
+  snprintf(edit_todo_query, sizeof(edit_todo_query),
+           "UPDATE %s SET name = '%s' ,desc = '%s' WHERE id = %d",
+           TODO_TABLE_NAME, new_name, new_desc, todo->list_id);
+  if (sqlite3_prepare(db_conn, edit_todo_query, -1, &edit_todo_stmt, NULL) !=
+      SQLITE_OK) {
+    addstr("Cannot prepare update statement");
+  }
+
+  if (sqlite3_step(edit_todo_stmt) != SQLITE_DONE) {
+    addstr("Cannot update todo list");
+  }
+  sqlite3_finalize(edit_todo_stmt);
+}
+
 Array *get_todos(sqlite3 *db_conn) {
   sqlite3_stmt *todo_lists_stmt;
   char todo_lists_query[200];
