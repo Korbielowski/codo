@@ -317,6 +317,46 @@ void change_task_status(WINDOW *win, sqlite3 *db_conn, Array *array,
   // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
 }
 
+void edit_task_win(WINDOW *win, sqlite3 *db_conn, Array *array,
+                   size_t cur_pos) {
+  if (array->occ_size == 0) {
+    return;
+  }
+  echo();
+  char name[TASK_NAME_LEN + 1];
+  char desc[TASK_DESC_LEN + 1];
+  WINDOW *edit_win = newwin(10, COLS - 20 - 1, LINES - 10, 20);
+
+  box(edit_win, 0, 0);
+  wrefresh(edit_win);
+  mvwgetstr(edit_win, 1, 1, name);
+  mvwgetstr(edit_win, 2, 1, desc);
+
+  Task *task = (Task *)get_array(array, cur_pos);
+  edit_task_db(db_conn, task, name, desc);
+
+  free(task->name);
+  free(task->desc);
+  task->name = malloc(sizeof(char) * strlen(name));
+  task->desc = malloc(sizeof(char) * strlen(desc));
+  strcpy(task->name, name);
+  strcpy(task->desc, desc);
+
+  wclrtoeol(win);
+  mvwaddstr(win, cur_pos, 30, task->name);
+  mvwaddstr(win, cur_pos, 30 + strlen(task->name) + 5, task->desc);
+  if (task->status == DONE) {
+    mvwprintw(win, cur_pos, COLS - 22, "%ls", TICK);
+  }
+  wrefresh(win);
+
+  wborder(edit_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
+  werase(edit_win);
+  wrefresh(edit_win);
+  delwin(edit_win);
+  noecho();
+}
+
 void print_tasks(WINDOW *tasks_win, Array **task_array, Array *todo_array,
                  sqlite3 *db_conn, int todo_cur_pos) {
   if (todo_array->occ_size == 0) {
@@ -441,8 +481,7 @@ void notes_screen(sqlite3 *db_conn) {
         wchgat(tasks_win, -1, A_NORMAL, 0, NULL);
         mode = CREATE_TASK_MODE;
       } else if (key == (int)'e') {
-        waddstr(tasks_win, "Edited item");
-        mode = CREATE_TASK_MODE;
+        edit_task_win(tasks_win, db_conn, task_array, task_cur_pos);
       } else if (key == (int)'d') {
         delete_task(tasks_win, db_conn, task_array, &task_cur_pos,
                     &task_max_cur_pos);

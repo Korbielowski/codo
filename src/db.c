@@ -150,6 +150,24 @@ void change_task_status_db(sqlite3 *db_conn, Task *task) {
   sqlite3_finalize(mark_as_done_stmt);
 }
 
+void edit_task_db(sqlite3 *db_conn, Task *task, char *new_name,
+                  char *new_desc) {
+  sqlite3_stmt *edit_task_stmt;
+  char edit_todo_query[TASKS_TABLE_NAME_LEN + 200];
+  snprintf(edit_todo_query, sizeof(edit_todo_query),
+           "UPDATE %s SET name = '%s' ,desc = '%s' WHERE id = %d",
+           TASKS_TABLE_NAME, new_name, new_desc, task->task_id);
+  if (sqlite3_prepare(db_conn, edit_todo_query, -1, &edit_task_stmt, NULL) !=
+      SQLITE_OK) {
+    addstr("Cannot prepare update statement");
+  }
+
+  if (sqlite3_step(edit_task_stmt) != SQLITE_DONE) {
+    addstr("Cannot update task");
+  }
+  sqlite3_finalize(edit_task_stmt);
+}
+
 Array *get_tasks(sqlite3 *db_conn, int todo_list_id) {
   sqlite3_stmt *tasks_stmt;
   char tasks_query[200];
@@ -246,7 +264,7 @@ void delete_todo_db(sqlite3 *db_conn, int todo_id) {
 
   // Delete all tasks related to deleted todo list
   snprintf(delete_tasks_query, sizeof(delete_tasks_query),
-           "DELETE FROM %s WHERE id = %d", TASKS_TABLE_NAME, todo_id);
+           "DELETE FROM %s WHERE list_id = %d", TASKS_TABLE_NAME, todo_id);
   if (sqlite3_prepare(db_conn, delete_tasks_query, -1, &delete_tasks_stmt,
                       NULL) != SQLITE_OK) {
     addstr("Can't prepare delete statement");
