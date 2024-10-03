@@ -17,15 +17,15 @@ apt install sqlite3 libncursesw5-dev
 
 ## Roadmap
 
-- [ ] Task operations
+- [X] Task operations
     - [X] Add
     - [X] Delete
-    - [ ] Edit
+    - [X] Edit
     - [X] Change status
-- [ ] List operations
+- [X] List operations
     - [X] Add
     - [X] Delete
-    - [ ] Edit
+    - [X] Edit
     - [X] Change status
 - [ ] Subtasks
 - [ ] Details window
