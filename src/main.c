@@ -32,7 +32,7 @@ int init_files() {
 
 void highlight_line(WINDOW *win, int cur_pos) {
   wmove(win, cur_pos, 1);
-  for (int i = 1; i < win->_maxx; i++) {
+  for (int i = 1; i < getmaxx(win) - 1; i++) {
     wchgat(win, i, A_STANDOUT, 0, NULL);
   }
   wrefresh(win);
@@ -40,11 +40,11 @@ void highlight_line(WINDOW *win, int cur_pos) {
 
 void change_highlight(WINDOW *win, int cur_pos) {
   wmove(win, cur_pos - 1, 0);
-  for (int i = 1; i < win->_maxx - 1; i++) {
+  for (int i = 1; i < getmaxx(win) - 1; i++) {
     wchgat(win, i, A_NORMAL, 0, NULL);
   }
   wmove(win, cur_pos, 0);
-  for (int i = 1; i < win->_maxy - 1; i++) {
+  for (int i = 1; i < getmaxy(win) - 1; i++) {
     wchgat(win, -1, A_STANDOUT, 0, NULL);
   }
   wrefresh(win);
@@ -55,7 +55,7 @@ void change_highlight(WINDOW *win, int cur_pos) {
 // jump) {
 void move_cur_up(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
   short min_pos = from_one ? 1 : 0;
-  for (int i = 1; i < win->_maxx; i++) {
+  for (int i = 1; i < getmaxx(win); i++) {
     wchgat(win, i, A_NORMAL, 0, NULL);
   }
   (*cur_pos)--;
@@ -63,14 +63,14 @@ void move_cur_up(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
     *cur_pos = max_cur_pos;
   }
   wmove(win, *cur_pos, 1);
-  for (int i = 1; i < win->_maxx; i++) {
+  for (int i = 1; i < getmaxx(win); i++) {
     wchgat(win, i, A_STANDOUT, 0, NULL);
   }
 }
 
 void move_cur_down(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
   short min_pos = from_one ? 1 : 0;
-  for (int i = 1; i < win->_maxx; i++) {
+  for (int i = 1; i < getmaxx(win); i++) {
     wchgat(win, i, A_NORMAL, 0, NULL);
   }
   (*cur_pos)++;
@@ -78,7 +78,7 @@ void move_cur_down(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
     *cur_pos = from_one;
   }
   wmove(win, *cur_pos, 1);
-  for (int i = 1; i < win->_maxx; i++) {
+  for (int i = 1; i < getmaxx(win); i++) {
     wchgat(win, i, A_STANDOUT, 0, NULL);
   }
 }
