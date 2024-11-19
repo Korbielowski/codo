@@ -123,6 +123,9 @@ void delete_todo(WINDOW *win, sqlite3 *db_conn, Array *array, int *cur_pos,
     wmove(win, i + 1, 0);
     wclrtoeol(win);
     mvwaddstr(win, i + 1, 0, todo->name);
+    if (todo->status == DONE) {
+      mvwprintw(win, i + 1, 18, "%ls", TICK);
+    }
   }
   wmove(win, array->occ_size + 1, 0);
   wclrtoeol(win);
