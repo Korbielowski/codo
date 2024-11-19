@@ -1,0 +1,14 @@
+# Build stage
+FROM ubuntu:20.04 as builder
+
+# Install dependencies
+RUN apt install sqlite3 libncursesw5-dev
+
+# Install codo
+RUN git clone https://github.com/Korbielowski/codo.git
+WORKIDIR /codo
+RUN make && make install 
+
+COPY --from=builder /codo/codo /usr/local/bin/codo
+
+ENTRYPOINT[ "/usr/local/bin/codo" ]
