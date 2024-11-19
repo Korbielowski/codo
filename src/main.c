@@ -277,6 +277,10 @@ void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
     wclrtoeol(win);
     mvwaddstr(win, i, 30, task->name);
     mvwaddstr(win, i, 30 + strlen(task->name) + 5, task->desc);
+    mvwaddstr(win, i, 30 + strlen(task->name) + 5, task->desc);
+    if (task->status == DONE) {
+      mvwprintw(win, i, COLS - 22, "%ls", TICK);
+    }
   }
   wmove(win, task_array->occ_size, 0);
   wclrtoeol(win);
