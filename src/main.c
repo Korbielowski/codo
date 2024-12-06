@@ -114,9 +114,9 @@ void add_todo(WINDOW *win, sqlite3 *db_conn, Array *array, char *name,
   }
 
   append_array(array, todo);
+  *cur_pos = array->occ_size;
 
   wchgat(win, -1, A_NORMAL, 0, NULL);
-  *cur_pos = array->occ_size;
   wmove(win, *cur_pos, 0);
   mvwaddstr(win, array->occ_size, 0, name);
   wchgat(win, -1, A_STANDOUT, 0, NULL);
