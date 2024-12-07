@@ -3,6 +3,22 @@ Codo is a simple yet powerful terminal to-do list manager written in C.
 
 ## Installation
 
+### Docker
+
+```bash
+git clone https://github.com/Korbielowski/codo.git
+cd codo
+docker build -t codo .
+docker run -it -v codo-db-data:/codo/ codo
+```
+
+To make your life easier set alias for this command 
+```bash
+alias codo='docker run -it -v codo-db-data:/codo/ codo'
+```
+
+### Ubuntu
+
 ```bash
 git clone https://github.com/Korbielowski/codo.git
 cd codo

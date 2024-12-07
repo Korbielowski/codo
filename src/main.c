@@ -116,7 +116,7 @@ void delete_todo(WINDOW *win, sqlite3 *db_conn, Array *array, int *cur_pos,
   }
   delete_todo_db(db_conn,
                  ((TodoList *)get_array(array, (*cur_pos) - 1))->list_id);
-  remove_array(array, (*cur_pos) - 1, (void (*)(void *)) & remove_todo);
+  remove_array(array, (*cur_pos) - 1, (void (*)(void *))&remove_todo);
   // TODO: Actually good screen clearing when deleting records
   for (int i = (*cur_pos) - 1; i < array->occ_size; i++) {
     TodoList *todo = (TodoList *)get_array(array, i);
@@ -163,7 +163,7 @@ void change_todo_status(WINDOW *win, sqlite3 *db_conn, Array *todo_array,
     return;
   } else {
     todo->status = IN_PROGESS;
-    mvwdelch(win, cur_pos, 18);
+    mvwaddch(win, cur_pos, 18, ' ');
   }
   wrefresh(win);
   change_todo_status_db(db_conn, todo);
@@ -269,7 +269,7 @@ void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
   }
   delete_task_db(db_conn, ((Task *)get_array(task_array, *cur_pos))->task_id);
 
-  remove_array(task_array, *cur_pos, (void (*)(void *)) & remove_task);
+  remove_array(task_array, *cur_pos, (void (*)(void *))&remove_task);
   // TODO: Actually good screen clearing when deleting records
   for (int i = *cur_pos; i < task_array->occ_size; i++) {
     Task *task = (Task *)get_array(task_array, i);
@@ -310,7 +310,7 @@ void change_task_status(WINDOW *win, sqlite3 *db_conn, Array *array,
     mvwprintw(win, cur_pos, COLS - 22, "%ls", TICK);
   } else {
     task->status = IN_PROGESS;
-    mvwdelch(win, cur_pos, COLS - 22);
+    mvwaddch(win, cur_pos, COLS - 22, ' ');
   }
   change_task_status_db(db_conn, task);
   // TODO: Change color and add checkmark next to done task
@@ -366,7 +366,7 @@ void print_tasks(WINDOW *tasks_win, Array **task_array, Array *todo_array,
   if (*task_array != NULL) {
     wclear(tasks_win);
     wrefresh(tasks_win);
-    deinit_array(*task_array, (void (*)(void *)) & deinit_task);
+    deinit_array(*task_array, (void (*)(void *))&deinit_task);
   }
   TodoList *todo = (TodoList *)get_array(todo_array, todo_cur_pos - 1);
   *task_array = get_tasks(db_conn, todo->list_id);
@@ -402,8 +402,8 @@ void notes_screen(sqlite3 *db_conn) {
   box(todo_win, 0, 0);
   waddstr(todo_win, "Todo lists");
 
-  // FixME: after starting app with no todo lists, and adding new one, codo
-  // crashes
+  // FixME: after starting app with no todo lists, and adding new one causes the
+  // crash of codo?
   if (todo_list_array->occ_size > 0) {
     for (size_t i = 0; i < todo_list_array->occ_size; i++) {
       TodoList *todo = (TodoList *)get_array(todo_list_array, i);
@@ -446,8 +446,8 @@ void notes_screen(sqlite3 *db_conn) {
       } else if (key == (int)'e') {
         edit_todo_win(todo_win, db_conn, todo_list_array, todo_cur_pos);
       } else if (key == (int)'x') {
-        deinit_array(task_array, (void (*)(void *)) & deinit_task);
-        deinit_array(todo_list_array, (void (*)(void *)) & deinit_todo);
+        deinit_array(task_array, (void (*)(void *))&deinit_task);
+        deinit_array(todo_list_array, (void (*)(void *))&deinit_todo);
         return;
       }
       wrefresh(todo_win);
@@ -482,13 +482,17 @@ void notes_screen(sqlite3 *db_conn) {
         mode = CREATE_TASK_MODE;
       } else if (key == (int)'e') {
         edit_task_win(tasks_win, db_conn, task_array, task_cur_pos);
+        change_todo_status(todo_win, db_conn, todo_list_array, task_array,
+                           todo_cur_pos);
       } else if (key == (int)'d') {
         delete_task(tasks_win, db_conn, task_array, &task_cur_pos,
                     &task_max_cur_pos);
+        change_todo_status(todo_win, db_conn, todo_list_array, task_array,
+                           todo_cur_pos);
       } else if (key == (int)'x') {
         // TODO: Check whether deinit functions work properly
-        deinit_array(task_array, (void (*)(void *)) & deinit_task);
-        deinit_array(todo_list_array, (void (*)(void *)) & deinit_todo);
+        deinit_array(task_array, (void (*)(void *))&deinit_task);
+        deinit_array(todo_list_array, (void (*)(void *))&deinit_todo);
         return;
       } else if (key == (int)'c') {
         wclear(tasks_win);
@@ -496,7 +500,7 @@ void notes_screen(sqlite3 *db_conn) {
         // task_max_cur_pos = -1;
         // task_cur_pos = -1;
         are_printed = false;
-        deinit_array(task_array, (void (*)(void *)) & deinit_task);
+        deinit_array(task_array, (void (*)(void *))&deinit_task);
         task_array = NULL;
       } else if (key == 'v') {
         change_task_status(tasks_win, db_conn, task_array, task_cur_pos);
@@ -520,6 +524,8 @@ void notes_screen(sqlite3 *db_conn) {
       TodoList *todo = (TodoList *)get_array(todo_list_array, todo_cur_pos - 1);
       add_task(tasks_win, db_conn, task_array, task_name, task_desc,
                todo->list_id, &task_max_cur_pos, &task_cur_pos);
+      change_todo_status(todo_win, db_conn, todo_list_array, task_array,
+                         todo_cur_pos);
 
       wborder(new_task_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
       werase(new_task_win);
