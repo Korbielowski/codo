@@ -34,30 +34,17 @@ int init_files() {
   return 0;
 }
 
-void highlight_line(WINDOW *win, int cur_pos) {
-  wmove(win, cur_pos, 1);
+void change_line_highlight(WINDOW *win, size_t cur_pos, bool which_win) {
+  attr_t attribute = mvwinch(win, cur_pos, 1) & A_ATTRIBUTES;
+  short offset = which_win ? 2 : 0;
 
-  for (int i = 1; i < getmaxx(win) - 1; i++) {
-    wchgat(win, i, A_STANDOUT, 0, NULL);
+  if (attribute == A_NORMAL) {
+    wchgat(win, getmaxx(win) - offset, A_STANDOUT, 0, NULL);
+    wmove(win, cur_pos, offset);
+  } else if (attribute == A_STANDOUT) {
+    wchgat(win, getmaxx(win) - offset, A_NORMAL, 0, NULL);
+    wmove(win, cur_pos, offset);
   }
-
-  wrefresh(win);
-}
-
-void change_highlight(WINDOW *win, int cur_pos) {
-  wmove(win, cur_pos - 1, 0);
-
-  for (int i = 1; i < getmaxx(win) - 1; i++) {
-    wchgat(win, i, A_NORMAL, 0, NULL);
-  }
-
-  wmove(win, cur_pos, 0);
-
-  for (int i = 1; i < getmaxy(win) - 1; i++) {
-    wchgat(win, -1, A_STANDOUT, 0, NULL);
-  }
-
-  wrefresh(win);
 }
 
 // TODO: Change how this function behaves to make any jump, void
@@ -66,37 +53,27 @@ void change_highlight(WINDOW *win, int cur_pos) {
 void move_cur_up(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
   short min_pos = from_one ? 1 : 0;
 
-  for (int i = 1; i < getmaxx(win); i++) {
-    wchgat(win, i, A_NORMAL, 0, NULL);
-  }
+  change_line_highlight(win, *cur_pos, from_one);
 
   (*cur_pos)--;
   if (*cur_pos < min_pos) {
     *cur_pos = max_cur_pos;
   }
 
-  wmove(win, *cur_pos, 1);
-  for (int i = 1; i < getmaxx(win); i++) {
-    wchgat(win, i, A_STANDOUT, 0, NULL);
-  }
+  change_line_highlight(win, *cur_pos, from_one);
 }
 
 void move_cur_down(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
   short min_pos = from_one ? 1 : 0;
 
-  for (int i = 1; i < getmaxx(win); i++) {
-    wchgat(win, i, A_NORMAL, 0, NULL);
-  }
+  change_line_highlight(win, *cur_pos, from_one);
 
   (*cur_pos)++;
   if (*cur_pos > max_cur_pos) {
     *cur_pos = from_one;
   }
 
-  wmove(win, *cur_pos, 1);
-  for (int i = 1; i < getmaxx(win); i++) {
-    wchgat(win, i, A_STANDOUT, 0, NULL);
-  }
+  change_line_highlight(win, *cur_pos, from_one);
 }
 
 void add_todo(WINDOW *win, sqlite3 *db_conn, Array *array, char *name,
@@ -120,7 +97,6 @@ void add_todo(WINDOW *win, sqlite3 *db_conn, Array *array, char *name,
   wmove(win, *cur_pos, 0);
   mvwaddstr(win, array->occ_size, 0, name);
   wchgat(win, -1, A_STANDOUT, 0, NULL);
-  wrefresh(win);
 
   todo->list_id = add_todo_db(db_conn, name, desc, IN_PROGESS);
 }
@@ -165,7 +141,6 @@ void delete_todo(WINDOW *win, sqlite3 *db_conn, Array *array, int *cur_pos,
 
   wmove(win, *cur_pos, 0);
   wchgat(win, -1, A_STANDOUT, 0, NULL);
-  wrefresh(win);
 }
 
 void change_todo_status(WINDOW *win, sqlite3 *db_conn, Array *todo_array,
@@ -194,7 +169,6 @@ void change_todo_status(WINDOW *win, sqlite3 *db_conn, Array *todo_array,
     mvwaddch(win, cur_pos, 18, ' ');
   }
 
-  wrefresh(win);
   change_todo_status_db(db_conn, todo);
   // TODO: Change color and add checkmark next to done task
   // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
@@ -232,7 +206,6 @@ void edit_todo_win(WINDOW *win, sqlite3 *db_conn, Array *array,
   if (todo->status == DONE) {
     mvwprintw(win, cur_pos, 18, "%ls", TICK);
   }
-  wrefresh(win);
   wborder(edit_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
   werase(edit_win);
   wrefresh(edit_win);
@@ -292,7 +265,6 @@ void add_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, char *task_name,
             task_desc);
   wmove(win, *cur_pos, 0);
   wchgat(win, -1, A_STANDOUT, 0, NULL);
-  wrefresh(win);
 }
 
 void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
@@ -335,7 +307,6 @@ void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
 
   wmove(win, *cur_pos, 0);
   wchgat(win, -1, A_STANDOUT, 0, NULL);
-  wrefresh(win);
 }
 
 void change_task_status(WINDOW *win, sqlite3 *db_conn, Array *array,
@@ -394,7 +365,6 @@ void edit_task_win(WINDOW *win, sqlite3 *db_conn, Array *array,
     mvwprintw(win, cur_pos, COLS - 22, "%ls", TICK);
   }
 
-  wrefresh(win);
   wborder(edit_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
   werase(edit_win);
   wrefresh(edit_win);
@@ -410,7 +380,7 @@ void print_tasks(WINDOW *tasks_win, Array **task_array, Array *todo_array,
 
   if (*task_array != NULL) {
     wclear(tasks_win);
-    wrefresh(tasks_win);
+    // wrefresh(tasks_win);
     deinit_array(*task_array, (void (*)(void *)) & deinit_task);
   }
 
@@ -471,13 +441,16 @@ void notes_screen(sqlite3 *db_conn) {
     todo_max_cur_pos = 1;
   }
 
+  change_line_highlight(todo_win, todo_cur_pos, true);
+  wrefresh(todo_win);
+
   while (true) {
     if (mode == SELECT_LIST_MODE) {
       // TODO: Add check to not draw this everytime (Same as in the other
       // modes)
       print_tasks(tasks_win, &task_array, todo_list_array, db_conn,
                   todo_cur_pos);
-      highlight_line(todo_win, todo_cur_pos);
+      // change_line_highlight(todo_win, todo_cur_pos);
 
       key = wgetch(todo_win);
 
@@ -530,28 +503,41 @@ void notes_screen(sqlite3 *db_conn) {
       }
 
       key = wgetch(tasks_win);
+
       if (key == KEY_DOWN) {
         move_cur_down(tasks_win, &task_cur_pos, task_max_cur_pos, false);
-      } else if (key == KEY_UP) {
+      }
+
+      else if (key == KEY_UP) {
         move_cur_up(tasks_win, &task_cur_pos, task_max_cur_pos, false);
-      } else if (key == (int)'a') {
+      }
+
+      else if (key == (int)'a') {
         wchgat(tasks_win, -1, A_NORMAL, 0, NULL);
         mode = CREATE_TASK_MODE;
-      } else if (key == (int)'e') {
+      }
+
+      else if (key == (int)'e') {
         edit_task_win(tasks_win, db_conn, task_array, task_cur_pos);
         change_todo_status(todo_win, db_conn, todo_list_array, task_array,
                            todo_cur_pos);
-      } else if (key == (int)'d') {
+      }
+
+      else if (key == (int)'d') {
         delete_task(tasks_win, db_conn, task_array, &task_cur_pos,
                     &task_max_cur_pos);
         change_todo_status(todo_win, db_conn, todo_list_array, task_array,
                            todo_cur_pos);
-      } else if (key == (int)'x') {
+      }
+
+      else if (key == (int)'x') {
         // TODO: Check whether deinit functions work properly
         deinit_array(task_array, (void (*)(void *)) & deinit_task);
         deinit_array(todo_list_array, (void (*)(void *)) & deinit_todo);
         return;
-      } else if (key == (int)'c') {
+      }
+
+      else if (key == (int)'c') {
         wclear(tasks_win);
         mode = SELECT_LIST_MODE;
         // task_max_cur_pos = -1;
@@ -559,12 +545,13 @@ void notes_screen(sqlite3 *db_conn) {
         are_printed = false;
         deinit_array(task_array, (void (*)(void *)) & deinit_task);
         task_array = NULL;
-      } else if (key == 'v') {
+      }
+
+      else if (key == 'v') {
         change_task_status(tasks_win, db_conn, task_array, task_cur_pos);
         change_todo_status(todo_win, db_conn, todo_list_array, task_array,
                            todo_cur_pos);
       }
-      wrefresh(tasks_win);
     }
 
     else if (mode == CREATE_TASK_MODE) {
@@ -594,6 +581,8 @@ void notes_screen(sqlite3 *db_conn) {
 
       mode = SELECT_TASK_MODE;
     }
+    wrefresh(tasks_win);
+    wrefresh(todo_win);
   }
 }
 
@@ -667,7 +656,7 @@ int main(int argc, char *argv[]) {
   keypad(initscr(), true);
   raw();
 
-  welcome_screen();
+  // welcome_screen();
   notes_screen(db_conn);
 
   endwin();
