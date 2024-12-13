@@ -34,9 +34,35 @@ int init_files() {
   return 0;
 }
 
-void change_line_highlight(WINDOW *win, size_t cur_pos, bool which_win) {
+void safe_cleartoel(WINDOW *win, int cur_pos) {
+  for (int i = 1; i < 19; i++) {
+    mvwaddch(win, cur_pos, i, ' ');
+  }
+}
+
+void line_highlight_on(WINDOW *win, int cur_pos, bool is_todo_win) {
   attr_t attribute = mvwinch(win, cur_pos, 1) & A_ATTRIBUTES;
-  short offset = which_win ? 2 : 0;
+  short offset = is_todo_win ? 2 : 0;
+
+  if (attribute == A_NORMAL) {
+    wchgat(win, getmaxx(win) - offset, A_STANDOUT, 0, NULL);
+    wmove(win, cur_pos, offset);
+  }
+}
+
+void line_highlight_off(WINDOW *win, int cur_pos, bool is_todo_win) {
+  attr_t attribute = mvwinch(win, cur_pos, 1) & A_ATTRIBUTES;
+  short offset = is_todo_win ? 2 : 0;
+
+  if (attribute == A_STANDOUT) {
+    wchgat(win, getmaxx(win) - offset, A_NORMAL, 0, NULL);
+    wmove(win, cur_pos, offset);
+  }
+}
+
+void toggle_line_highlight(WINDOW *win, int cur_pos, bool is_todo_win) {
+  attr_t attribute = mvwinch(win, cur_pos, 1) & A_ATTRIBUTES;
+  short offset = is_todo_win ? 2 : 0;
 
   if (attribute == A_NORMAL) {
     wchgat(win, getmaxx(win) - offset, A_STANDOUT, 0, NULL);
@@ -53,27 +79,27 @@ void change_line_highlight(WINDOW *win, size_t cur_pos, bool which_win) {
 void move_cur_up(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
   short min_pos = from_one ? 1 : 0;
 
-  change_line_highlight(win, *cur_pos, from_one);
+  toggle_line_highlight(win, *cur_pos, from_one);
 
   (*cur_pos)--;
   if (*cur_pos < min_pos) {
     *cur_pos = max_cur_pos;
   }
 
-  change_line_highlight(win, *cur_pos, from_one);
+  toggle_line_highlight(win, *cur_pos, from_one);
 }
 
 void move_cur_down(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
   short min_pos = from_one ? 1 : 0;
 
-  change_line_highlight(win, *cur_pos, from_one);
+  toggle_line_highlight(win, *cur_pos, from_one);
 
   (*cur_pos)++;
   if (*cur_pos > max_cur_pos) {
     *cur_pos = from_one;
   }
 
-  change_line_highlight(win, *cur_pos, from_one);
+  toggle_line_highlight(win, *cur_pos, from_one);
 }
 
 void add_todo(WINDOW *win, sqlite3 *db_conn, Array *array, char *name,
@@ -85,18 +111,20 @@ void add_todo(WINDOW *win, sqlite3 *db_conn, Array *array, char *name,
   strcpy(todo->name, name);
   strcpy(todo->desc, desc);
 
+  line_highlight_off(win, *cur_pos, true);
+
   if (array->occ_size != 0) {
     (*cur_pos)++;
     (*max_cur_pos)++;
   }
 
   append_array(array, todo);
+
   *cur_pos = array->occ_size;
 
-  wchgat(win, -1, A_NORMAL, 0, NULL);
-  wmove(win, *cur_pos, 0);
-  mvwaddstr(win, array->occ_size, 0, name);
-  wchgat(win, -1, A_STANDOUT, 0, NULL);
+  mvwaddstr(win, array->occ_size, 1, name);
+
+  line_highlight_on(win, *cur_pos, true);
 
   todo->list_id = add_todo_db(db_conn, name, desc, IN_PROGESS);
 }
@@ -115,17 +143,15 @@ void delete_todo(WINDOW *win, sqlite3 *db_conn, Array *array, int *cur_pos,
   for (int i = (*cur_pos) - 1; i < array->occ_size; i++) {
     TodoList *todo = (TodoList *)get_array(array, i);
 
-    wmove(win, i + 1, 0);
-    wclrtoeol(win);
-    mvwaddstr(win, i + 1, 0, todo->name);
+    safe_cleartoel(win, i + 1);
+    mvwaddstr(win, i + 1, 1, todo->name);
 
     if (todo->status == DONE) {
       mvwprintw(win, i + 1, 18, "%ls", TICK);
     }
   }
 
-  wmove(win, array->occ_size + 1, 0);
-  wclrtoeol(win);
+  safe_cleartoel(win, array->occ_size + 1);
 
   if (array->occ_size == 0) {
     return;
@@ -133,27 +159,26 @@ void delete_todo(WINDOW *win, sqlite3 *db_conn, Array *array, int *cur_pos,
 
   if (*cur_pos == *max_cur_pos) {
     (*cur_pos)--;
-
-    wmove(win, *cur_pos, 0);
-    wchgat(win, -1, A_STANDOUT, 0, NULL);
+    line_highlight_on(win, *cur_pos, true);
   }
   (*max_cur_pos)--;
 
-  wmove(win, *cur_pos, 0);
-  wchgat(win, -1, A_STANDOUT, 0, NULL);
+  line_highlight_on(win, *cur_pos, true);
 }
 
 void change_todo_status(WINDOW *win, sqlite3 *db_conn, Array *todo_array,
                         Array *task_array, size_t cur_pos) {
+  bool all_todo_done;
   if (task_array->occ_size == 0) {
-    return;
-  }
+    all_todo_done = false;
+  } else {
 
-  bool all_todo_done = true;
-  for (int i = 0; i < task_array->occ_size; i++) {
-    if (((Task *)get_array(task_array, i))->status != DONE) {
-      all_todo_done = false;
-      break;
+    all_todo_done = true;
+    for (int i = 0; i < task_array->occ_size; i++) {
+      if (((Task *)get_array(task_array, i))->status != DONE) {
+        all_todo_done = false;
+        break;
+      }
     }
   }
 
@@ -168,8 +193,11 @@ void change_todo_status(WINDOW *win, sqlite3 *db_conn, Array *todo_array,
     todo->status = IN_PROGESS;
     mvwaddch(win, cur_pos, 18, ' ');
   }
+  mvwchgat(win, cur_pos, 18, 1, A_STANDOUT, 0, NULL);
+  wmove(win, cur_pos, 1);
 
   change_todo_status_db(db_conn, todo);
+
   // TODO: Change color and add checkmark next to done task
   // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
 }
@@ -188,12 +216,12 @@ void edit_todo_win(WINDOW *win, sqlite3 *db_conn, Array *array,
 
   box(edit_win, 0, 0);
   wrefresh(edit_win);
-  mvwgetstr(edit_win, 1, 1, name);
-  mvwgetstr(edit_win, 2, 1, desc);
+  mvwgetnstr(edit_win, 1, 1, name, TODO_NAME_LEN);
+  mvwgetnstr(edit_win, 2, 1, desc, TODO_DESC_LEN);
 
   TodoList *todo = (TodoList *)get_array(array, cur_pos - 1);
-
   edit_todo_db(db_conn, todo, name, desc);
+
   free(todo->name);
   free(todo->desc);
   todo->name = malloc(sizeof(char) * strlen(name));
@@ -201,11 +229,16 @@ void edit_todo_win(WINDOW *win, sqlite3 *db_conn, Array *array,
   strcpy(todo->name, name);
   strcpy(todo->desc, desc);
 
-  wclrtoeol(win);
+  safe_cleartoel(win, cur_pos);
+  line_highlight_off(win, cur_pos, true);
   mvwaddstr(win, cur_pos, 1, todo->name);
+
   if (todo->status == DONE) {
     mvwprintw(win, cur_pos, 18, "%ls", TICK);
   }
+
+  line_highlight_on(win, cur_pos, true);
+
   wborder(edit_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
   werase(edit_win);
   wrefresh(edit_win);
@@ -247,10 +280,11 @@ void add_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, char *task_name,
   task->desc = malloc(strlen(task_desc) * sizeof(task->desc));
   task->status = IN_PROGESS;
   task->task_id = task_id;
+
   strcpy(task->name, task_name);
   strcpy(task->desc, task_desc);
 
-  wchgat(win, -1, A_NORMAL, 0, NULL);
+  line_highlight_off(win, *cur_pos, false);
 
   if (task_array->occ_size != 0) {
     (*max_cur_pos)++;
@@ -263,8 +297,8 @@ void add_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, char *task_name,
   mvwaddstr(win, task_array->occ_size - 1, 30, task_name);
   mvwaddstr(win, task_array->occ_size - 1, 30 + strlen(task_name) + 5,
             task_desc);
-  wmove(win, *cur_pos, 0);
-  wchgat(win, -1, A_STANDOUT, 0, NULL);
+
+  line_highlight_on(win, *cur_pos, false);
 }
 
 void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
@@ -284,7 +318,6 @@ void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
     wclrtoeol(win);
     mvwaddstr(win, i, 30, task->name);
     mvwaddstr(win, i, 30 + strlen(task->name) + 5, task->desc);
-    mvwaddstr(win, i, 30 + strlen(task->name) + 5, task->desc);
 
     if (task->status == DONE) {
       mvwprintw(win, i, COLS - 22, "%ls", TICK);
@@ -300,13 +333,11 @@ void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
 
   if (*cur_pos == *max_cur_pos) {
     (*cur_pos)--;
-    wmove(win, *cur_pos, 0);
-    wchgat(win, -1, A_STANDOUT, 0, NULL);
+    line_highlight_on(win, *cur_pos, false);
   }
   (*max_cur_pos)--;
 
-  wmove(win, *cur_pos, 0);
-  wchgat(win, -1, A_STANDOUT, 0, NULL);
+  line_highlight_on(win, *cur_pos, false);
 }
 
 void change_task_status(WINDOW *win, sqlite3 *db_conn, Array *array,
@@ -317,6 +348,9 @@ void change_task_status(WINDOW *win, sqlite3 *db_conn, Array *array,
 
   Task *task = (Task *)get_array(array, cur_pos);
 
+  // TODO: Change color and add checkmark next to done task
+  // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
+
   if (task->status == IN_PROGESS) {
     task->status = DONE;
     mvwprintw(win, cur_pos, COLS - 22, "%ls", TICK);
@@ -324,10 +358,10 @@ void change_task_status(WINDOW *win, sqlite3 *db_conn, Array *array,
     task->status = IN_PROGESS;
     mvwaddch(win, cur_pos, COLS - 22, ' ');
   }
+  mvwchgat(win, cur_pos, COLS - 22, 1, A_STANDOUT, 0, NULL);
+  wmove(win, cur_pos, 0);
 
   change_task_status_db(db_conn, task);
-  // TODO: Change color and add checkmark next to done task
-  // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
 }
 
 void edit_task_win(WINDOW *win, sqlite3 *db_conn, Array *array,
@@ -344,8 +378,8 @@ void edit_task_win(WINDOW *win, sqlite3 *db_conn, Array *array,
 
   box(edit_win, 0, 0);
   wrefresh(edit_win);
-  mvwgetstr(edit_win, 1, 1, name);
-  mvwgetstr(edit_win, 2, 1, desc);
+  mvwgetnstr(edit_win, 1, 1, name, TASK_NAME_LEN);
+  mvwgetnstr(edit_win, 2, 1, desc, TASK_DESC_LEN);
 
   Task *task = (Task *)get_array(array, cur_pos);
   edit_task_db(db_conn, task, name, desc);
@@ -358,12 +392,15 @@ void edit_task_win(WINDOW *win, sqlite3 *db_conn, Array *array,
   strcpy(task->desc, desc);
 
   wclrtoeol(win);
+  line_highlight_off(win, cur_pos, false);
   mvwaddstr(win, cur_pos, 30, task->name);
   mvwaddstr(win, cur_pos, 30 + strlen(task->name) + 5, task->desc);
 
   if (task->status == DONE) {
     mvwprintw(win, cur_pos, COLS - 22, "%ls", TICK);
   }
+
+  line_highlight_on(win, cur_pos, false);
 
   wborder(edit_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
   werase(edit_win);
@@ -441,16 +478,14 @@ void notes_screen(sqlite3 *db_conn) {
     todo_max_cur_pos = 1;
   }
 
-  change_line_highlight(todo_win, todo_cur_pos, true);
+  toggle_line_highlight(todo_win, todo_cur_pos, true);
   wrefresh(todo_win);
 
   while (true) {
     if (mode == SELECT_LIST_MODE) {
-      // TODO: Add check to not draw this everytime (Same as in the other
-      // modes)
+      // TODO: Add check to not draw this everytime (Same as in the other modes)
       print_tasks(tasks_win, &task_array, todo_list_array, db_conn,
                   todo_cur_pos);
-      // change_line_highlight(todo_win, todo_cur_pos);
 
       key = wgetch(todo_win);
 
@@ -495,8 +530,7 @@ void notes_screen(sqlite3 *db_conn) {
         task_max_cur_pos = task_array->occ_size - 1;
         task_cur_pos = 0;
 
-        wmove(tasks_win, task_cur_pos, 0);
-        wchgat(tasks_win, -1, A_STANDOUT, 0, NULL);
+        line_highlight_on(tasks_win, task_cur_pos, false);
         wrefresh(tasks_win);
 
         are_printed = true;
@@ -515,6 +549,7 @@ void notes_screen(sqlite3 *db_conn) {
       else if (key == (int)'a') {
         wchgat(tasks_win, -1, A_NORMAL, 0, NULL);
         mode = CREATE_TASK_MODE;
+        // TODO: Move CREATE_TASK_MODE to separate function
       }
 
       else if (key == (int)'e') {
@@ -540,8 +575,6 @@ void notes_screen(sqlite3 *db_conn) {
       else if (key == (int)'c') {
         wclear(tasks_win);
         mode = SELECT_LIST_MODE;
-        // task_max_cur_pos = -1;
-        // task_cur_pos = -1;
         are_printed = false;
         deinit_array(task_array, (void (*)(void *)) & deinit_task);
         task_array = NULL;
@@ -656,7 +689,7 @@ int main(int argc, char *argv[]) {
   keypad(initscr(), true);
   raw();
 
-  // welcome_screen();
+  welcome_screen();
   notes_screen(db_conn);
 
   endwin();
