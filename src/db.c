@@ -44,6 +44,8 @@ sqlite3 *init_db() {
               name VARCHAR(100) NOT NULL,\
               desc VARCHAR(200),\
               status INTEGER NOT NULL, \
+              subtaskof INTEGER, \
+              position INTEGER NOT NULL, \
               FOREIGN KEY (list_id) REFERENCES %s (list_id))",
              TASKS_TABLE_NAME, TODO_TABLE_NAME);
 
@@ -82,16 +84,17 @@ bool check_if_table_exists(sqlite3 *db_conn, char *query) {
 }
 
 int add_task_db(sqlite3 *db_conn, char *task_name, char *task_desc,
-                int todo_list_id) {
+                int todo_list_id, int position) {
   char add_task_query[TASKS_TABLE_NAME_LEN + TASK_DESC_LEN + 100];
   sqlite3_stmt *add_task_stmt;
   int task_id;
 
   snprintf(add_task_query, sizeof(add_task_query),
-           "INSERT INTO %s (name, desc, list_id, status) "
+           "INSERT INTO %s (name, desc, list_id, status, subtaskof, position) "
            "VALUES "
-           "('%s', '%s', %d, %d)",
-           TASKS_TABLE_NAME, task_name, task_desc, todo_list_id, IN_PROGESS);
+           "('%s', '%s', %d, %d, NULL, %d)",
+           TASKS_TABLE_NAME, task_name, task_desc, todo_list_id, IN_PROGESS,
+           position);
 
   if (sqlite3_prepare_v2(db_conn, add_task_query, -1, &add_task_stmt, NULL) !=
       SQLITE_OK) {
@@ -194,8 +197,9 @@ Array *get_tasks(sqlite3 *db_conn, int todo_list_id) {
 
   init_array(task_array);
 
-  sprintf(tasks_query, "SELECT * FROM %s WHERE list_id = %d", TASKS_TABLE_NAME,
-          todo_list_id);
+  sprintf(tasks_query,
+          "SELECT * FROM %s WHERE list_id = %d ORDER BY position ASC",
+          TASKS_TABLE_NAME, todo_list_id);
 
   if (sqlite3_prepare(db_conn, tasks_query, -1, &tasks_stmt, NULL) !=
       SQLITE_OK) {
@@ -218,7 +222,9 @@ Array *get_tasks(sqlite3 *db_conn, int todo_list_id) {
 
     task->status = sqlite3_column_int(tasks_stmt, 4);
 
-    append_array(task_array, task);
+    task->position = sqlite3_column_int(tasks_stmt, 6);
+
+    pushback_array(task_array, task);
   }
 
   sqlite3_finalize(tasks_stmt);
@@ -373,10 +379,36 @@ Array *get_todos(sqlite3 *db_conn) {
 
     todo->status = (int)sqlite3_column_int(todo_lists_stmt, 3);
 
-    append_array(todo_list_array, todo);
+    pushback_array(todo_list_array, todo);
   }
 
   sqlite3_finalize(todo_lists_stmt);
 
   return todo_list_array;
+}
+
+void update_tasks_positions_db(sqlite3 *db_conn, Array *array, int position) {
+  sqlite3_stmt *stmt;
+
+  if (sqlite3_prepare_v2(db_conn,
+                         "UPDATE tasks SET position = ?1 WHERE id = ?2", -1,
+                         &stmt, NULL) != SQLITE_OK) {
+    addstr("Can't update tasks positions\n");
+  }
+
+  for (int i = position; i < array->occ_size; i++) {
+    Task *task = (Task *)get_array(array, i);
+
+    sqlite3_bind_int(stmt, 1, task->position);
+    sqlite3_bind_int(stmt, 2, task->task_id);
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+      addstr("Cannot update task position");
+    }
+
+    sqlite3_reset(stmt);
+    sqlite3_clear_bindings(stmt);
+  }
+
+  sqlite3_finalize(stmt);
 }

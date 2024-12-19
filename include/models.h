@@ -13,6 +13,7 @@ typedef struct {
   char *name;
   char *desc;
   int list_id;
+  int position;
   Status status;
 } TodoList;
 
@@ -21,5 +22,7 @@ typedef struct {
   char *desc;
   int task_id;
   int list_id;
+  int position;
+  int subtaskof;
   Status status;
 } Task;
