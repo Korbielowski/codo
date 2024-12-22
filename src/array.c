@@ -25,7 +25,7 @@ void deinit_array(Array *array, void (*deinit_func_p)(void *)) {
 }
 
 void *get_array(Array *array, size_t index) {
-  if (index >= array->occ_size) {
+  if (index >= array->occ_size || index < 0 || array->occ_size == 0) {
     return NULL;
   }
 

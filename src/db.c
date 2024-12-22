@@ -44,7 +44,7 @@ sqlite3 *init_db() {
               name VARCHAR(100) NOT NULL,\
               desc VARCHAR(200),\
               status INTEGER NOT NULL, \
-              subtaskof INTEGER, \
+              parent_id INTEGER NOT NULL, \
               position INTEGER NOT NULL, \
               FOREIGN KEY (list_id) REFERENCES %s (list_id))",
              TASKS_TABLE_NAME, TODO_TABLE_NAME);
@@ -84,17 +84,17 @@ bool check_if_table_exists(sqlite3 *db_conn, char *query) {
 }
 
 int add_task_db(sqlite3 *db_conn, char *task_name, char *task_desc,
-                int todo_list_id, int position) {
+                int todo_list_id, int position, int parent_id) {
   char add_task_query[TASKS_TABLE_NAME_LEN + TASK_DESC_LEN + 100];
   sqlite3_stmt *add_task_stmt;
   int task_id;
 
   snprintf(add_task_query, sizeof(add_task_query),
-           "INSERT INTO %s (name, desc, list_id, status, subtaskof, position) "
+           "INSERT INTO %s (name, desc, list_id, status, parent_id, position) "
            "VALUES "
-           "('%s', '%s', %d, %d, NULL, %d)",
+           "('%s', '%s', %d, %d, %d, %d)",
            TASKS_TABLE_NAME, task_name, task_desc, todo_list_id, IN_PROGESS,
-           position);
+           parent_id, position);
 
   if (sqlite3_prepare_v2(db_conn, add_task_query, -1, &add_task_stmt, NULL) !=
       SQLITE_OK) {
@@ -133,6 +133,8 @@ int add_task_db(sqlite3 *db_conn, char *task_name, char *task_desc,
 void delete_task_db(sqlite3 *db_conn, int task_id) {
   char delete_task_query[TASKS_TABLE_NAME_LEN + 50];
   sqlite3_stmt *delete_task_stmt;
+  char delete_subtasks_query[TASKS_TABLE_NAME_LEN + 50];
+  sqlite3_stmt *delete_subtasks_stmt;
 
   snprintf(delete_task_query, sizeof(delete_task_query),
            "DELETE FROM %s WHERE id = %d", TASKS_TABLE_NAME, task_id);
@@ -147,6 +149,20 @@ void delete_task_db(sqlite3 *db_conn, int task_id) {
   }
 
   sqlite3_finalize(delete_task_stmt);
+
+  snprintf(delete_subtasks_query, sizeof(delete_subtasks_query),
+           "DELETE FROM %s WHERE parent_id = %d", TASKS_TABLE_NAME, task_id);
+
+  if (sqlite3_prepare(db_conn, delete_subtasks_query, -1, &delete_subtasks_stmt,
+                      NULL) != SQLITE_OK) {
+    addstr("Can't prepare delete statement");
+  }
+
+  if (sqlite3_step(delete_subtasks_stmt) != SQLITE_DONE) {
+    addstr("Can't delete item from database");
+  }
+
+  sqlite3_finalize(delete_subtasks_stmt);
 }
 
 void change_task_status_db(sqlite3 *db_conn, Task *task) {
@@ -193,7 +209,7 @@ void edit_task_db(sqlite3 *db_conn, Task *task, char *new_name,
 Array *get_tasks(sqlite3 *db_conn, int todo_list_id) {
   sqlite3_stmt *tasks_stmt;
   char tasks_query[200];
-  Array *task_array = malloc(sizeof(Array));
+  Array *task_array = malloc(sizeof(*task_array));
 
   init_array(task_array);
 
@@ -221,7 +237,7 @@ Array *get_tasks(sqlite3 *db_conn, int todo_list_id) {
     strcpy(task->desc, task_desc);
 
     task->status = sqlite3_column_int(tasks_stmt, 4);
-
+    task->parent_id = sqlite3_column_int(tasks_stmt, 5);
     task->position = sqlite3_column_int(tasks_stmt, 6);
 
     pushback_array(task_array, task);

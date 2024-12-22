@@ -8,7 +8,7 @@ bool check_if_table_exists(sqlite3 *db_conn, char *query);
 
 // Task related operations
 int add_task_db(sqlite3 *db_conn, char *task_name, char *task_desc,
-                int todo_list_id, int position);
+                int todo_list_id, int position, int parent_id);
 void delete_task_db(sqlite3 *db_conn, int task_id);
 void change_task_status_db(sqlite3 *db_conn, Task *task);
 void edit_task_db(sqlite3 *db_conn, Task *task, char *new_name, char *new_desc);

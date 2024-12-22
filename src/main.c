@@ -34,6 +34,19 @@ int init_files() {
   return 0;
 }
 
+void draw_task(WINDOW *win, Task *task, int pos) {
+  short offset = task->parent_id != -1 ? 5 : 0;
+
+  mvwprintw(win, pos, 0 + offset, "%d", task->position);
+  // mvwprintw(tasks_win, i, 3, "%d", task->parent_id);
+  mvwaddstr(win, pos, 30 + offset, task->name);
+  mvwaddstr(win, pos, 30 + offset + strlen(task->name) + 5, task->desc);
+
+  if (task->status == DONE) {
+    mvwprintw(win, pos, COLS - 22, "%ls", TICK);
+  }
+}
+
 void safe_cleartoel(WINDOW *win, int cur_pos, bool is_todo_win) {
   short start = is_todo_win ? 1 : 0;
   short end = is_todo_win ? 19 : COLS - 21;
@@ -116,7 +129,7 @@ void update_positions(sqlite3 *db_conn, Array *array, int start_pos) {
 
 void add_todo(WINDOW *win, sqlite3 *db_conn, Array *array, char *name,
               char *desc, int *cur_pos, int *max_cur_pos) {
-  TodoList *todo = malloc(sizeof(TodoList));
+  TodoList *todo = malloc(sizeof(*todo));
   todo->name = malloc(strlen(name) * sizeof(todo->name));
   todo->desc = malloc(strlen(desc) * sizeof(todo->desc));
 
@@ -214,6 +227,8 @@ void change_todo_status(WINDOW *win, sqlite3 *db_conn, Array *todo_array,
   // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
 }
 
+// FIX: When editing todo list codo crashes (add todo list, exit codo, run codo,
+// edit todo list)
 void edit_todo_win(WINDOW *win, sqlite3 *db_conn, Array *array,
                    size_t cur_pos) {
   if (array->occ_size == 0) {
@@ -235,11 +250,12 @@ void edit_todo_win(WINDOW *win, sqlite3 *db_conn, Array *array,
   edit_todo_db(db_conn, todo, name, desc);
 
   free(todo->name);
-  free(todo->desc);
+  // free(todo->desc);
+
   todo->name = malloc(sizeof(char) * strlen(name));
-  todo->desc = malloc(sizeof(char) * strlen(desc));
+  // todo->desc = malloc(sizeof(char) * strlen(desc));
   strcpy(todo->name, name);
-  strcpy(todo->desc, desc);
+  // strcpy(todo->desc, desc);
 
   safe_cleartoel(win, cur_pos, true);
   line_highlight_off(win, cur_pos, true);
@@ -280,52 +296,80 @@ void new_todo_win(sqlite3 *db_conn, Array *array, WINDOW *win, int *cur_pos,
   noecho();
 }
 
-void new_task_win(sqlite3 *db_conn, Array *array) {}
-
 void add_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, char *task_name,
-              char *task_desc, int todo_list_id, int *max_cur_pos,
-              int *cur_pos) {
-  int task_id =
-      add_task_db(db_conn, task_name, task_desc, todo_list_id, *cur_pos);
+              char *task_desc, int todo_list_id, int *max_cur_pos, int *cur_pos,
+              bool is_subtask) {
+  Task *task = malloc(sizeof(*task));
 
-  Task *task = malloc(sizeof(Task));
   task->name = malloc(strlen(task_name) * sizeof(task->name));
   task->desc = malloc(strlen(task_desc) * sizeof(task->desc));
   task->status = IN_PROGESS;
-  task->task_id = task_id;
-  task->position = *cur_pos;
 
   strcpy(task->name, task_name);
   strcpy(task->desc, task_desc);
 
-  line_highlight_off(win, *cur_pos, false);
+  int move_offset = 0;
+  if (is_subtask == true) {
+    Task *parent_task = (Task *)get_array(task_array, *cur_pos);
+    int parent_id;
+
+    if (parent_task->parent_id != -1) {
+      parent_id = parent_task->parent_id;
+    } else {
+      parent_id = parent_task->task_id;
+    }
+
+    task->task_id = add_task_db(db_conn, task_name, task_desc, todo_list_id,
+                                *cur_pos, parent_id);
+    task->parent_id = parent_id;
+    task->position = (*cur_pos) + 1;
+  } else {
+    task->task_id =
+        add_task_db(db_conn, task_name, task_desc, todo_list_id, *cur_pos, -1);
+    task->parent_id = -1;
+    task->position = *cur_pos;
+
+    for (int i = *cur_pos; i >= 0; i--) {
+      Task *tmp = (Task *)get_array(task_array, i);
+
+      if (!tmp) {
+        continue;
+      }
+
+      move_offset++;
+
+      if (tmp->parent_id == -1) {
+        task->position = tmp->position;
+        break;
+      }
+    }
+  }
 
   if (task_array->occ_size != 0) {
     (*max_cur_pos)++;
   }
 
-  if (add_array(task_array, *cur_pos, task) == OP_NOT_OK) {
+  if (add_array(task_array, task->position, task) == OP_NOT_OK) {
     exit(EXIT_FAILURE);
   }
 
-  update_positions(db_conn, task_array, (*cur_pos) + 1);
+  update_positions(db_conn, task_array, task->position);
 
-  for (int i = *cur_pos; i < task_array->occ_size; i++) {
+  line_highlight_off(win, *cur_pos, false);
+
+  for (int i = task->position; i < task_array->occ_size; i++) {
     Task *tmp = (Task *)get_array(task_array, i);
     char *name = tmp->name;
     char *desc = tmp->desc;
 
     safe_cleartoel(win, i, false);
-    mvwaddstr(win, i, 30, name);
-    mvwaddstr(win, i, 30 + strlen(name) + 5, desc);
-    if (tmp->status == DONE) {
-      mvwprintw(win, i, COLS - 22, "%ls", TICK);
-    }
+    draw_task(win, tmp, i);
   }
 
   line_highlight_on(win, *cur_pos, false);
 }
 
+// TODO: Delete all subtask if parent task is deleted
 void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
                  int *max_cur_pos) {
   if (task_array->occ_size == 0) {
@@ -337,18 +381,12 @@ void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
 
   update_positions(db_conn, task_array, *cur_pos);
 
-  // TODO: Actually good screen clearing when deleting records
   for (int i = *cur_pos; i < task_array->occ_size; i++) {
     Task *task = (Task *)get_array(task_array, i);
 
-    wmove(win, i, 0);
-    wclrtoeol(win);
-    mvwaddstr(win, i, 30, task->name);
-    mvwaddstr(win, i, 30 + strlen(task->name) + 5, task->desc);
+    safe_cleartoel(win, i, false);
 
-    if (task->status == DONE) {
-      mvwprintw(win, i, COLS - 22, "%ls", TICK);
-    }
+    draw_task(win, task, i);
   }
 
   wmove(win, task_array->occ_size, 0);
@@ -418,14 +456,11 @@ void edit_task_win(WINDOW *win, sqlite3 *db_conn, Array *array,
   strcpy(task->name, name);
   strcpy(task->desc, desc);
 
-  wclrtoeol(win);
-  line_highlight_off(win, cur_pos, false);
-  mvwaddstr(win, cur_pos, 30, task->name);
-  mvwaddstr(win, cur_pos, 30 + strlen(task->name) + 5, task->desc);
+  safe_cleartoel(win, cur_pos, false);
 
-  if (task->status == DONE) {
-    mvwprintw(win, cur_pos, COLS - 22, "%ls", TICK);
-  }
+  line_highlight_off(win, cur_pos, false);
+
+  draw_task(win, task, cur_pos);
 
   line_highlight_on(win, cur_pos, false);
 
@@ -453,19 +488,39 @@ void print_tasks(WINDOW *tasks_win, Array **task_array, Array *todo_array,
 
   for (size_t i = 0; i < (*task_array)->occ_size; i++) {
     Task *task = (Task *)get_array(*task_array, i);
-    mvwaddstr(tasks_win, i, 30, task->name);
-    mvwaddstr(tasks_win, i, 30 + strlen(task->name) + 5, task->desc);
-    // mvwaddstr(tasks_win, i, 30 + strlen(task->name) + strlen(task->desc),
-    // task->position);
-    mvwprintw(tasks_win, i, 30 + strlen(task->name) + strlen(task->desc) + 10,
-              "%d", task->position);
 
-    if (task->status == DONE) {
-      mvwprintw(tasks_win, i, COLS - 22, "%ls", TICK);
-    }
+    draw_task(tasks_win, task, i);
   }
 
   wrefresh(tasks_win);
+}
+
+void new_task_win(sqlite3 *db_conn, Array *task_array, Array *todo_array,
+                  WINDOW *tasks_win, WINDOW *todos_win, int *task_cur_pos,
+                  int *task_max_cur_pos, int todo_cur_pos, bool is_subtask) {
+  wchgat(tasks_win, -1, A_NORMAL, 0, NULL);
+  echo();
+
+  char task_name[TASK_NAME_LEN + 1];
+  char task_desc[TASK_DESC_LEN + 1];
+  WINDOW *new_task_win = newwin(10, COLS - 20 - 1, LINES - 10, 20);
+
+  box(new_task_win, 0, 0);
+  wrefresh(new_task_win);
+  mvwgetstr(new_task_win, 1, 1, task_name);
+  mvwgetstr(new_task_win, 2, 1, task_desc);
+
+  TodoList *todo = (TodoList *)get_array(todo_array, todo_cur_pos - 1);
+
+  add_task(tasks_win, db_conn, task_array, task_name, task_desc, todo->list_id,
+           task_max_cur_pos, task_cur_pos, is_subtask);
+  change_todo_status(todos_win, db_conn, todo_array, task_array, todo_cur_pos);
+
+  wborder(new_task_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
+  werase(new_task_win);
+  wrefresh(new_task_win);
+  delwin(new_task_win);
+  noecho();
 }
 
 void notes_screen(sqlite3 *db_conn) {
@@ -489,8 +544,6 @@ void notes_screen(sqlite3 *db_conn) {
   box(todo_win, 0, 0);
   waddstr(todo_win, "Todo lists");
 
-  // FixME: after starting app with no todo lists, and adding new one causes the
-  // crash of codo?
   if (todo_list_array->occ_size > 0) {
     for (size_t i = 0; i < todo_list_array->occ_size; i++) {
       TodoList *todo = (TodoList *)get_array(todo_list_array, i);
@@ -538,6 +591,7 @@ void notes_screen(sqlite3 *db_conn) {
       } else if (key == (int)'e') {
         edit_todo_win(todo_win, db_conn, todo_list_array, todo_cur_pos);
       } else if (key == (int)'x') {
+        // FIX when there is no todo lists and user exits codo, the app crashes
         deinit_array(task_array, (void (*)(void *)) & deinit_task);
         deinit_array(todo_list_array, (void (*)(void *)) & deinit_todo);
         return;
@@ -568,9 +622,13 @@ void notes_screen(sqlite3 *db_conn) {
       }
 
       else if (key == (int)'a') {
-        wchgat(tasks_win, -1, A_NORMAL, 0, NULL);
-        mode = CREATE_TASK_MODE;
-        // TODO: Move CREATE_TASK_MODE to separate function
+        new_task_win(db_conn, task_array, todo_list_array, tasks_win, todo_win,
+                     &task_cur_pos, &task_max_cur_pos, todo_cur_pos, false);
+      }
+
+      else if (key == (int)'s') {
+        new_task_win(db_conn, task_array, todo_list_array, tasks_win, todo_win,
+                     &task_cur_pos, &task_max_cur_pos, todo_cur_pos, true);
       }
 
       else if (key == (int)'e') {
@@ -608,33 +666,6 @@ void notes_screen(sqlite3 *db_conn) {
       }
     }
 
-    else if (mode == CREATE_TASK_MODE) {
-      echo();
-
-      char task_name[TASK_NAME_LEN + 1];
-      char task_desc[TASK_DESC_LEN + 1];
-      WINDOW *new_task_win = newwin(10, COLS - 20 - 1, LINES - 10, 20);
-
-      box(new_task_win, 0, 0);
-      wrefresh(new_task_win);
-      mvwgetstr(new_task_win, 1, 1, task_name);
-      mvwgetstr(new_task_win, 2, 1, task_desc);
-
-      TodoList *todo = (TodoList *)get_array(todo_list_array, todo_cur_pos - 1);
-
-      add_task(tasks_win, db_conn, task_array, task_name, task_desc,
-               todo->list_id, &task_max_cur_pos, &task_cur_pos);
-      change_todo_status(todo_win, db_conn, todo_list_array, task_array,
-                         todo_cur_pos);
-
-      wborder(new_task_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
-      werase(new_task_win);
-      wrefresh(new_task_win);
-      delwin(new_task_win);
-      noecho();
-
-      mode = SELECT_TASK_MODE;
-    }
     wrefresh(tasks_win);
     wrefresh(todo_win);
   }

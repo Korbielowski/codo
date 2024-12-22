@@ -23,6 +23,6 @@ typedef struct {
   int task_id;
   int list_id;
   int position;
-  int subtaskof;
+  int parent_id;
   Status status;
 } Task;
