@@ -1,4 +1,5 @@
-#include "../include/array.h"
+#include "array.h"
+#include "logger.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -15,13 +16,17 @@ int init_array(Array *array) {
 }
 
 void deinit_array(Array *array, void (*deinit_func_p)(void *)) {
+  if (array == NULL) {
+    return;
+  }
+
   if (deinit_func_p != NULL) {
     for (size_t i = 0; i < array->occ_size; i++) {
       (*deinit_func_p)(array->arr[i]);
     }
   }
-
   free(array->arr);
+  free(array);
 }
 
 void *get_array(Array *array, size_t index) {
@@ -115,16 +120,14 @@ void deinit_task(Task *task) {
   if (task != NULL) {
     free(task->name);
     free(task->desc);
+    free(task);
   }
-
-  free(task);
 }
 
 void deinit_todo(TodoList *todo) {
   if (todo != NULL) {
     free(todo->name);
     // free(todo->desc);
+    free(todo);
   }
-
-  free(todo);
 }

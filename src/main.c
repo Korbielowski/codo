@@ -1,6 +1,7 @@
-#include "../include/commands.h"
-#include "../include/constants.h"
-#include "../include/db.h"
+#include "commands.h"
+#include "constants.h"
+#include "db.h"
+#include "logger.h"
 #include <locale.h>
 #include <ncurses.h>
 #include <sqlite3.h>
@@ -10,7 +11,7 @@
 #include <sys/stat.h>
 #include <wchar.h>
 
-const wchar_t TICK[] = L"\u2714";
+static const wchar_t TICK[] = L"\u2714";
 
 int init_files() {
   struct stat st = {0};
@@ -111,7 +112,7 @@ void move_cur_down(WINDOW *win, int *cur_pos, int max_cur_pos, bool from_one) {
 
   (*cur_pos)++;
   if (*cur_pos > max_cur_pos) {
-    *cur_pos = from_one;
+    *cur_pos = min_pos;
   }
 
   toggle_line_highlight(win, *cur_pos, from_one);
@@ -359,8 +360,6 @@ void add_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, char *task_name,
 
   for (int i = task->position; i < task_array->occ_size; i++) {
     Task *tmp = (Task *)get_array(task_array, i);
-    char *name = tmp->name;
-    char *desc = tmp->desc;
 
     safe_cleartoel(win, i, false);
     draw_task(win, tmp, i);
@@ -384,7 +383,7 @@ void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
   int offset = 1; // Offset is set to 1 at the start because we are also
                   // removing parent, which happens in code above
   if (parent_id == -1) {
-    while (tmp = (Task *)get_array(task_array, *cur_pos)) {
+    while ((tmp = (Task *)get_array(task_array, *cur_pos)) != NULL) {
       if (tmp->parent_id == -1) {
         break;
       }
@@ -678,8 +677,6 @@ void notes_screen(sqlite3 *db_conn) {
       } else if (key == (int)'e') {
         edit_todo_win(todo_win, db_conn, todo_list_array, todo_cur_pos);
       } else if (key == (int)'x') {
-        // FIX when there is no todo lists and user exits codo, the app
-        // crashes
         deinit_array(task_array, (void (*)(void *)) & deinit_task);
         deinit_array(todo_list_array, (void (*)(void *)) & deinit_todo);
         return;
@@ -775,9 +772,10 @@ void welcome_screen() {
 
 void parse_select_task_mode_input(WINDOW *win, Array *todo_list_array,
                                   Array *task_array) {
-  size_t cur_pos, x;
-  short int key = wgetch(win);
-  getyx(win, cur_pos, x);
+  // TODO: Parse command-line arguments
+  // size_t cur_pos, x;
+  // short int key = wgetch(win);
+  // getyx(win, cur_pos, x);
 }
 
 // Function for parsing command line arguments given by the user
