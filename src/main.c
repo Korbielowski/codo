@@ -369,22 +369,39 @@ void add_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, char *task_name,
   line_highlight_on(win, *cur_pos, false);
 }
 
-// TODO: Delete all subtask if parent task is deleted
 void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
                  int *max_cur_pos) {
   if (task_array->occ_size == 0) {
     return;
   }
+  Task *task = (Task *)get_array(task_array, *cur_pos);
+  int parent_id = task->parent_id;
 
-  delete_task_db(db_conn, ((Task *)get_array(task_array, *cur_pos))->task_id);
+  delete_task_db(db_conn, task->task_id);
   remove_array(task_array, *cur_pos, (void (*)(void *)) & remove_task);
+
+  Task *tmp;
+  int offset = 1; // Offset is set to 1 at the start because we are also
+                  // removing parent, which happens in code above
+  if (parent_id == -1) {
+    while (tmp = (Task *)get_array(task_array, *cur_pos)) {
+      if (tmp->parent_id == -1) {
+        break;
+      }
+
+      remove_array(task_array, *cur_pos, (void (*)(void *)) & remove_task);
+      offset++;
+    }
+  }
+
+  for (int i = *cur_pos; i < task_array->occ_size + offset; i++) {
+    safe_cleartoel(win, i, false);
+  }
 
   update_positions(db_conn, task_array, *cur_pos);
 
   for (int i = *cur_pos; i < task_array->occ_size; i++) {
     Task *task = (Task *)get_array(task_array, i);
-
-    safe_cleartoel(win, i, false);
 
     draw_task(win, task, i);
   }
@@ -392,15 +409,18 @@ void delete_task(WINDOW *win, sqlite3 *db_conn, Array *task_array, int *cur_pos,
   wmove(win, task_array->occ_size, 0);
   wclrtoeol(win);
 
-  if (task_array->occ_size == 0) {
-    return;
-  }
+  (*max_cur_pos) -= offset;
 
-  if (*cur_pos == *max_cur_pos) {
-    (*cur_pos)--;
+  // FIXMe: When deleting one subtask, cur_pos and max_cur_pos are wrongly
+  // calculated. Also make so that the max_cur_pos cannot be -1
+  FILE *file = fopen("debug.txt", "a");
+  fprintf(file, "cur_pos: %d, max_pos: %d\n", *cur_pos, *max_cur_pos);
+  fclose(file);
+
+  if (*cur_pos > *max_cur_pos) {
+    (*cur_pos) = *max_cur_pos;
     line_highlight_on(win, *cur_pos, false);
   }
-  (*max_cur_pos)--;
 
   line_highlight_on(win, *cur_pos, false);
 }
@@ -412,17 +432,83 @@ void change_task_status(WINDOW *win, sqlite3 *db_conn, Array *array,
   }
 
   Task *task = (Task *)get_array(array, cur_pos);
+  int parent_position;
+  Task *tmp;
+
+  // Code for subtask
+  if (task->parent_id != -1) {
+    // Get parent task position
+    for (int i = cur_pos - 1; i >= 0; i--) {
+      tmp = (Task *)get_array(array, i);
+
+      if (tmp->parent_id == -1) {
+        parent_position = tmp->position;
+        break;
+      }
+    }
+
+    if (task->status == IN_PROGESS) {
+      task->status = DONE;
+      mvwprintw(win, cur_pos, COLS - 22, "%ls", TICK);
+    } else {
+      task->status = IN_PROGESS;
+      mvwaddch(win, cur_pos, COLS - 22, ' ');
+    }
+
+    bool are_all_checked = true;
+    for (int i = parent_position + 1; i < array->occ_size; i++) {
+      tmp = (Task *)get_array(array, i);
+      if (tmp->parent_id == -1) {
+        break;
+      }
+
+      if (tmp->status != DONE) {
+        are_all_checked = false;
+        break;
+      }
+    }
+
+    tmp = (Task *)get_array(array, parent_position);
+
+    if (are_all_checked == true) {
+      tmp->status = DONE;
+      mvwprintw(win, parent_position, COLS - 22, "%ls", TICK);
+    } else {
+      tmp->status = IN_PROGESS;
+      mvwaddch(win, parent_position, COLS - 22, ' ');
+    }
+  }
+  // Code for task
+  else {
+    parent_position = task->position;
+
+    if (task->status == IN_PROGESS) {
+      task->status = DONE;
+      mvwprintw(win, cur_pos, COLS - 22, "%ls", TICK);
+    } else {
+      task->status = IN_PROGESS;
+      mvwaddch(win, cur_pos, COLS - 22, ' ');
+    }
+
+    for (int i = parent_position + 1; i < array->occ_size; i++) {
+      tmp = (Task *)get_array(array, i);
+
+      if (tmp->parent_id == -1) {
+        break;
+      }
+
+      tmp->status = task->status;
+      if (tmp->status == DONE) {
+        mvwprintw(win, i, COLS - 22, "%ls", TICK);
+      } else {
+        mvwaddch(win, i, COLS - 22, ' ');
+      }
+    }
+  }
 
   // TODO: Change color and add checkmark next to done task
   // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
 
-  if (task->status == IN_PROGESS) {
-    task->status = DONE;
-    mvwprintw(win, cur_pos, COLS - 22, "%ls", TICK);
-  } else {
-    task->status = IN_PROGESS;
-    mvwaddch(win, cur_pos, COLS - 22, ' ');
-  }
   mvwchgat(win, cur_pos, COLS - 22, 1, A_STANDOUT, 0, NULL);
   wmove(win, cur_pos, 0);
 
@@ -567,7 +653,8 @@ void notes_screen(sqlite3 *db_conn) {
 
   while (true) {
     if (mode == SELECT_LIST_MODE) {
-      // TODO: Add check to not draw this everytime (Same as in the other modes)
+      // TODO: Add check to not draw this everytime (Same as in the other
+      // modes)
       print_tasks(tasks_win, &task_array, todo_list_array, db_conn,
                   todo_cur_pos);
 
@@ -591,7 +678,8 @@ void notes_screen(sqlite3 *db_conn) {
       } else if (key == (int)'e') {
         edit_todo_win(todo_win, db_conn, todo_list_array, todo_cur_pos);
       } else if (key == (int)'x') {
-        // FIX when there is no todo lists and user exits codo, the app crashes
+        // FIX when there is no todo lists and user exits codo, the app
+        // crashes
         deinit_array(task_array, (void (*)(void *)) & deinit_task);
         deinit_array(todo_list_array, (void (*)(void *)) & deinit_todo);
         return;
@@ -710,9 +798,9 @@ int parse_args(int argc, char *argv[]) {
         }
       }
     } else {
-      printf(
-          "Can't parse argument: %c. Arguments should look like this: -ajd\n",
-          argv[i][0]);
+      printf("Can't parse argument: %c. Arguments should look like this: "
+             "-ajd\n",
+             argv[i][0]);
       return 1;
     }
   }

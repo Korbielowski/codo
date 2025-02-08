@@ -23,6 +23,9 @@ typedef struct {
   int task_id;
   int list_id;
   int position;
-  int parent_id;
+  int parent_id; // TODO: Check if its good idea to change parent_id to
+                 // parent_position, as it does not require searching the tasks
+                 // array to find a parent's postion when marking subtasks as
+                 // done
   Status status;
 } Task;

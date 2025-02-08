@@ -43,7 +43,7 @@ apt install sqlite3 libncursesw5-dev
     - [X] Delete
     - [X] Edit
     - [X] Change status
-- [ ] Subtasks
+- [X] Subtasks
 - [ ] Details window
 - [ ] Color themes
 - [ ] Keymaps
