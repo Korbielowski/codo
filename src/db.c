@@ -1,6 +1,6 @@
-#include "../include/db.h"
-#include "../include/array.h"
-#include "../include/constants.h"
+#include "db.h"
+#include "array.h"
+#include "constants.h"
 #include <ncurses.h>
 #include <stdio.h>
 #include <string.h>
