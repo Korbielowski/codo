@@ -16,7 +16,7 @@ int init_array(Array *array) {
 
 void deinit_array(Array *array, void (*deinit_func_p)(void *)) {
   if (deinit_func_p != NULL) {
-    for (int i = 0; i < array->occ_size; i++) {
+    for (size_t i = 0; i < array->occ_size; i++) {
       (*deinit_func_p)(array->arr[i]);
     }
   }
@@ -25,14 +25,14 @@ void deinit_array(Array *array, void (*deinit_func_p)(void *)) {
 }
 
 void *get_array(Array *array, size_t index) {
-  if (index >= array->occ_size) {
+  if (index >= array->occ_size || index < 0 || array->occ_size == 0) {
     return NULL;
   }
 
   return array->arr[index];
 }
 
-int append_array(Array *array, void *item) {
+int _grow_array(Array *array) {
   array->occ_size++;
 
   if (array->occ_size > array->arr_size) {
@@ -44,7 +44,36 @@ int append_array(Array *array, void *item) {
     }
   }
 
+  return OP_OK;
+}
+
+void _swap_items_array(Array *array, size_t first_position,
+                       size_t second_position) {
+  void *item = get_array(array, first_position);
+
+  array->arr[first_position] = array->arr[second_position];
+  array->arr[second_position] = item;
+}
+
+int pushback_array(Array *array, void *item) {
+
+  if (_grow_array(array) == OP_NOT_OK) {
+    return OP_NOT_OK;
+  }
+
   array->arr[array->occ_size - 1] = item;
+
+  return OP_OK;
+}
+
+int add_array(Array *array, size_t position, void *item) {
+  if (pushback_array(array, item) == OP_NOT_OK) {
+    return OP_NOT_OK;
+  }
+
+  for (size_t i = array->occ_size - 1; i > position; i--) {
+    _swap_items_array(array, i, i - 1);
+  }
 
   return OP_OK;
 }
@@ -56,7 +85,7 @@ int remove_array(Array *array, size_t index, void (*remove_func_p)(void *)) {
     return OP_NOT_OK;
   }
 
-  for (int i = index; i < array->occ_size - 1; i++) {
+  for (size_t i = index; i < array->occ_size - 1; i++) {
     void *element = get_array(array, i + 1);
 
     if (element == NULL) {

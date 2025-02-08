@@ -18,9 +18,15 @@ void deinit_array(Array *array, void (*func_p)(void *));
 
 void *get_array(Array *array, size_t index);
 
-int append_array(Array *array, void *item);
+int pushback_array(Array *array, void *item);
+
+int add_array(Array *array, size_t position, void *item);
 
 int remove_array(Array *array, size_t index, void (*remove_func_p)(void *));
+
+int _shrink_array(Array *array);
+
+int _grow_array(Array *array);
 
 void remove_task(Task *task);
 

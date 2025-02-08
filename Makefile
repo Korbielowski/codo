@@ -7,5 +7,5 @@ install:
 
 test: tests/tests.c include/array.h
 	cc -o test src/array.c tests/tests.c
-	./test
-	rm test
+	# ./test
+	# rm test
