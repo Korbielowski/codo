@@ -53,11 +53,11 @@ apt install sqlite3 libncursesw5-dev
 
 ## Controls
 
-- Insert new task/to-do list [i]
-- Insert new subtask [s]
-- Delete task/to-do list [d]
-- Edit task/to-do list [e]
-- Enter to-do list [arrow-right]
-- Exit to-do list [c]
-- Move up [arrow-down]
-- Move down [arrow-up]
+- Insert new task/to-do list ```i```
+- Insert new subtask ```s```
+- Delete task/to-do list ```d``` 
+- Edit task/to-do list ```e``` 
+- Enter to-do list ```arrow-right``` 
+- Exit to-do list ```c``` 
+- Move up ```arrow-up```
+- Move down ```arrow-down```
