@@ -17,7 +17,7 @@ To make your life easier set alias for this command
 alias codo='docker run -it -v codo-db-data:/codo/ codo'
 ```
 
-### Ubuntu
+### Debian/Ubuntu
 
 ```bash
 git clone https://github.com/Korbielowski/codo.git

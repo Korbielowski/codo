@@ -16,9 +16,11 @@ static const wchar_t TICK[] = L"\u2714";
 int init_files() {
   struct stat st = {0};
 
-  if (stat("./test", &st)) {
-    mkdir("./test", 0700);
-  }
+  // TODO: Uncomment, and change it to one of the default Linux config
+  // directories
+  // if (stat("./test", &st)) {
+  //   mkdir("./test", 0700);
+  // }
 
   if (stat(TODO_DB_FILE_NAME, &st)) {
     FILE *db_file;
@@ -128,6 +130,16 @@ void update_positions(sqlite3 *db_conn, Array *array, int start_pos) {
   update_tasks_positions_db(db_conn, array, start_pos);
 }
 
+void display_todo_list_details(Array *arr, size_t cur_pos) {
+  TodoList *todo = (TodoList *)get_array(arr, cur_pos - 1);
+  WINDOW *details_win = newwin(20, 20, 5, 10);
+  mvwaddstr(details_win, 10 + 1, 1, todo->name);
+  wgetch(details_win);
+  werase(details_win);
+  wrefresh(details_win);
+  delwin(details_win);
+}
+
 void add_todo(WINDOW *win, sqlite3 *db_conn, Array *array, char *name,
               char *desc, int *cur_pos, int *max_cur_pos) {
   TodoList *todo = malloc(sizeof(*todo));
@@ -228,8 +240,6 @@ void change_todo_status(WINDOW *win, sqlite3 *db_conn, Array *todo_array,
   // wchgat(win, -1, A_NORMAL, COLOR_GREEN, NULL);
 }
 
-// FIX: When editing todo list codo crashes (add todo list, exit codo, run codo,
-// edit todo list)
 void edit_todo_win(WINDOW *win, sqlite3 *db_conn, Array *array,
                    size_t cur_pos) {
   if (array->occ_size == 0) {
@@ -676,6 +686,8 @@ void notes_screen(sqlite3 *db_conn) {
                     &todo_max_cur_pos);
       } else if (key == (int)'e') {
         edit_todo_win(todo_win, db_conn, todo_list_array, todo_cur_pos);
+      } else if (key == (int)'i') {
+        display_todo_list_details(todo_list_array, todo_cur_pos);
       } else if (key == (int)'x') {
         deinit_array(task_array, (void (*)(void *)) & deinit_task);
         deinit_array(todo_list_array, (void (*)(void *)) & deinit_todo);
@@ -730,7 +742,6 @@ void notes_screen(sqlite3 *db_conn) {
       }
 
       else if (key == (int)'x') {
-        // TODO: Check whether deinit functions work properly
         deinit_array(task_array, (void (*)(void *)) & deinit_task);
         deinit_array(todo_list_array, (void (*)(void *)) & deinit_todo);
         return;
