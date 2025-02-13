@@ -51,7 +51,7 @@ apt install sqlite3 libncursesw5-dev
 - [ ] Search
 - [ ] Scalable interface
 
-## Controls
+## Keymaps 
 
 - Insert new task/to-do list ```i```
 - Insert new subtask ```s```
